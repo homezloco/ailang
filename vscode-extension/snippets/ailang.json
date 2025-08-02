@@ -1,0 +1,186 @@
+{
+    "Model Definition": {
+        "prefix": "model",
+        "body": [
+            "model ${1:ModelName}:",
+            "  # Model definition",
+            "  input_shape: [${2:shape}]",
+            "  ",
+            "  layers:",
+            "    - type: ${3:dense}",
+            "      units: ${4:64}",
+            "      activation: ${5:relu}",
+            "    - type: ${6:dropout}",
+            "      rate: ${7:0.5}",
+            "    - type: ${8:dense}",
+            "      units: ${9:10}",
+            "      activation: ${10:softmax}",
+            "  ",
+            "  train:",
+            "    optimizer: ${11:adam}",
+            "    loss: ${12:categorical_crossentropy}",
+            "    metrics: [${13:accuracy}]",
+            "    epochs: ${14:10}",
+            "    batch_size: ${15:32}"
+        ],
+        "description": "Create a new AILang model definition"
+    },
+    "Dense Layer": {
+        "prefix": "dense",
+        "body": [
+            "- type: dense",
+            "  units: ${1:64}",
+            "  ${2:activation: ${3:relu}}",
+            "  ${4:use_bias: ${5:true}}",
+            "  ${6:kernel_initializer: ${7:glorot_uniform}}",
+            "  ${8:kernel_regularizer: ${9:null}}",
+            "  ${10:bias_initializer: ${11:zeros}}",
+            "  ${12:bias_regularizer: ${13:null}}",
+            "  ${14:activity_regularizer: ${15:null}}",
+            "  ${16:kernel_constraint: ${17:null}}",
+            "  ${18:bias_constraint: ${19:null}}"
+        ],
+        "description": "Add a dense layer"
+    },
+    "Convolutional 2D Layer": {
+        "prefix": "conv2d",
+        "body": [
+            "- type: conv2d",
+            "  filters: ${1:32}",
+            "  kernel_size: [${2:3}, ${3:3}]",
+            "  strides: [${4:1}, ${5:1}]",
+            "  padding: ${6:valid}",
+            "  ${7:activation: ${8:relu}}",
+            "  ${9:use_bias: ${10:true}}",
+            "  ${11:kernel_initializer: ${12:glorot_uniform}}",
+            "  ${13:bias_initializer: ${14:zeros}}",
+            "  ${15:kernel_regularizer: ${16:null}}",
+            "  ${17:bias_regularizer: ${18:null}}",
+            "  ${19:activity_regularizer: ${20:null}}",
+            "  ${21:kernel_constraint: ${22:null}}",
+            "  ${23:bias_constraint: ${24:null}}"
+        ],
+        "description": "Add a 2D convolutional layer"
+    },
+    "Dropout Layer": {
+        "prefix": "dropout",
+        "body": [
+            "- type: dropout",
+            "  rate: ${1:0.5}",
+            "  ${2:seed: ${3:null}}"
+        ],
+        "description": "Add a dropout layer"
+    },
+    "Batch Normalization Layer": {
+        "prefix": "batchnorm",
+        "body": [
+            "- type: batch_normalization",
+            "  axis: ${1:-1}",
+            "  momentum: ${2:0.99}",
+            "  epsilon: ${3:0.001}",
+            "  center: ${4:true}",
+            "  scale: ${5:true}",
+            "  beta_initializer: ${6:zeros}",
+            "  gamma_initializer: ${7:ones}",
+            "  moving_mean_initializer: ${8:zeros}",
+            "  moving_variance_initializer: ${9:ones}",
+            "  beta_regularizer: ${10:null}",
+            "  gamma_regularizer: ${11:null}",
+            "  beta_constraint: ${12:null}",
+            "  gamma_constraint: ${13:null}"
+        ],
+        "description": "Add a batch normalization layer"
+    },
+    "Training Configuration": {
+        "prefix": "train",
+        "body": [
+            "train:",
+            "  optimizer: ${1:adam}",
+            "  learning_rate: ${2:0.001}",
+            "  loss: ${3:categorical_crossentropy}",
+            "  metrics: [${4:accuracy}]",
+            "  epochs: ${5:10}",
+            "  batch_size: ${6:32}",
+            "  ${7:validation_split: ${8:0.2}}",
+            "  ${9:shuffle: ${10:true}}",
+            "  ${11:callbacks: [${12:early_stopping, model_checkpoint, reduce_lr}]}",
+            "  ${13:verbose: ${14:1}}"
+        ],
+        "description": "Add training configuration"
+    },
+    "Optimizer Configuration": {
+        "prefix": "optimizer",
+        "body": [
+            "optimizer:",
+            "  type: ${1|adam,sgd,rmsprop,adagrad,adadelta,adamax,nadam,ftrl|}",
+            "  learning_rate: ${2:0.001}",
+            "  ${3:clipnorm: ${4:null}}",
+            "  ${5:clipvalue: ${6:null}}",
+            "  ${7:decay: ${8:0.0}}",
+            "  ${9:nesterov: ${10:false}}",
+            "  ${11:momentum: ${12:0.0}}",
+            "  ${13:rho: ${14:0.9}}",
+            "  ${15:beta_1: ${16:0.9}}",
+            "  ${17:beta_2: ${18:0.999}}",
+            "  ${19:epsilon: ${20:1e-7}}",
+            "  ${21:amsgrad: ${22:false}}"
+        ],
+        "description": "Configure optimizer parameters"
+    },
+    "Callbacks Configuration": {
+        "prefix": "callbacks",
+        "body": [
+            "callbacks:",
+            "  - type: ${1|early_stopping,model_checkpoint,reduce_lr,learning_rate_scheduler,tensorboard,csv_logger,terminate_on_nan,progbar_logger,remote_monitor,lambdacallback|}",
+            "    ${2:monitor: ${3:val_loss}}",
+            "    ${4:patience: ${5:10}}",
+            "    ${6:mode: ${7:auto}}",
+            "    ${8:min_delta: ${9:0.0}}",
+            "    ${10:baseline: ${11:null}}",
+            "    ${12:restore_best_weights: ${13:false}}",
+            "    ${14:filepath: ${15:model.h5}}",
+            "    ${16:save_best_only: ${17:false}}",
+            "    ${18:save_weights_only: ${19:false}}",
+            "    ${20:save_freq: ${21:epoch}}",
+            "    ${22:factor: ${23:0.1}}",
+            "    ${24:min_lr: ${25:0.00001}}",
+            "    ${26:cooldown: ${27:0}}",
+            "    ${28:min_delta: ${29:0.0001}}"
+        ],
+        "description": "Add training callbacks"
+    },
+    "Data Augmentation": {
+        "prefix": "augmentation",
+        "body": [
+            "data_augmentation:",
+            "  rotation_range: ${1:20}",
+            "  width_shift_range: ${2:0.1}",
+            "  height_shift_range: ${3:0.1}",
+            "  shear_range: ${4:0.2}",
+            "  zoom_range: ${5:0.2}",
+            "  horizontal_flip: ${6:true}",
+            "  vertical_flip: ${7:false}",
+            "  fill_mode: ${8:nearest}",
+            "  brightness_range: [${9:0.8}, ${10:1.2}]",
+            "  channel_shift_range: ${11:0.0}",
+            "  samplewise_center: ${12:false}",
+            "  samplewise_std_normalization: ${13:false}",
+            "  zca_whitening: ${14:false}",
+            "  zca_epsilon: ${15:1e-6}",
+            "  preprocessing_function: ${16:null}"
+        ],
+        "description": "Configure data augmentation parameters"
+    },
+    "Custom Layer": {
+        "prefix": "custom_layer",
+        "body": [
+            "- type: custom",
+            "  class_name: ${1:MyCustomLayer}",
+            "  config:",
+            "    param1: ${2:value1}",
+            "    param2: ${3:value2}",
+            "    ${4:param3: ${5:value3}}"
+        ],
+        "description": "Add a custom layer implementation"
+    }
+}
