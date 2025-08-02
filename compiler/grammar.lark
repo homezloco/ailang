@@ -1,0 +1,22 @@
+start: statement+
+
+statement: model_definition
+         | input_definition
+         | layer_definition
+         | optimizer_definition
+         | loss_definition
+         | train_definition
+         | dataset_definition
+
+model_definition: "model" NAME "{" layer_definition+ "}"
+input_definition: "input" "(" NAME "," INT ")"
+layer_definition: NAME "(" INT ("," NAME)? ")"
+optimizer_definition: "optimizer" NAME
+loss_definition: "loss" NAME
+train_definition: "train" "(" dataset_definition "," INT ")"
+dataset_definition: "dataset" NAME
+
+%import common.CNAME -> NAME
+%import common.INT
+%import common.WS
+%ignore WS

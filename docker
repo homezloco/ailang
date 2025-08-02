@@ -1,0 +1,9 @@
+{
+  "providers": [
+    {
+      "title": "WizardCoder (Ollama)",
+      "model": "ollama/wizardcoder:latest",
+      "apiBase": "http://localhost:11434/api"
+    }
+  ]
+}

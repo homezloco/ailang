@@ -1,0 +1,14 @@
+start: model_block train_block?
+
+model_block: "model" NAME "{" input_block layer_block+ "}"
+input_block: "input" ":" "size" "=" INT
+layer_block: "layer" ":" "units" "=" INT "," "activation" "=" STRING
+
+train_block: "train" "{" train_config "}"
+train_config: "epochs" "=" INT "," "batch_size" "=" INT
+
+%import common.CNAME -> NAME
+%import common.INT
+%import common.ESCAPED_STRING -> STRING
+%import common.WS
+%ignore WS
