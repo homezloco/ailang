@@ -112,8 +112,16 @@ ailang repl
 ### VS Code Extension
 
 1. Install the AILang extension from the VS Code marketplace
-2. Open any `.ail` file for syntax highlighting and IntelliSense
+2. Open any `.ail` file for syntax highlighting, diagnostics, and IntelliSense
 3. Use the command palette (`Ctrl+Shift+P`) to access AILang commands
+
+The extension provides:
+- Real-time diagnostics for missing parameters, type errors, and syntax issues
+- Code completion for AILang keywords and model parameters
+- Hover information for language elements
+- Formatting and snippet support
+
+For developers contributing to the extension, a comprehensive test suite validates all features including activation, diagnostics, completion, and hover functionality.
 
 ### Example: Simple Neural Network
 
@@ -205,8 +213,10 @@ model MyModel {
 - [x] Model definition syntax
 - [x] Basic transpilation to Python
 - [x] VS Code extension with syntax highlighting
+- [x] Comprehensive diagnostics and validation
+- [x] Code completion and hover information
+- [x] Robust test suite for extension features
 - [ ] Training pipeline integration
-- [ ] Basic validation and linting
 
 ### Phase 2: Training & Evaluation
 - [ ] Training configuration blocks
