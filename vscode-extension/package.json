@@ -12,7 +12,12 @@
     "Linters",
     "Formatters"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:ailang",
+    "onCommand:ailang.formatFile",
+    "onCommand:ailang.setLanguageId",
+    "workspaceContains:**/*.ail"
+  ],
   "main": "./out/src/extension.js",
   "contributes": {
     "viewsWelcome": [
@@ -32,7 +37,11 @@
           ".ail"
         ],
         "configuration": "./language-configuration.json",
-        "firstLine": "^\\s*model\\s"
+        "firstLine": "^\\s*model\\s",
+        "icon": {
+          "light": "./icons/ailang-light.png",
+          "dark": "./icons/ailang-dark.png"
+        }
       }
     ],
     "grammars": [

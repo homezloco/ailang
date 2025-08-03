@@ -41,7 +41,13 @@ export class AILangFormatter implements vscode.DocumentFormattingEditProvider, v
     }
 
     public provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
-        return this.formatDocument(document);
+        console.log(`Formatting document: ${document.fileName}, Language ID: ${document.languageId}`);
+        // Format the document even if language ID is not 'ailang' but has .ail extension
+        if (document.fileName.endsWith('.ail') || document.languageId === 'ailang') {
+            return this.formatDocument(document);
+        }
+        console.log('Document not eligible for AILang formatting');
+        return [];
     }
 
     public provideDocumentRangeFormattingEdits(document: TextDocument, range: Range): TextEdit[] {
@@ -186,6 +192,45 @@ export function registerFormatter(context: vscode.ExtensionContext) {
         context.subscriptions.push(rangeFormattingProvider);
         
         console.log('Document formatting providers registered successfully');
+        
+        // Register a direct format command that bypasses VS Code's formatter selection
+        const formatCommand = vscode.commands.registerCommand('ailang.formatFile', async () => {
+            try {
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    vscode.window.showWarningMessage('No active editor found');
+                    return;
+                }
+                
+                const document = editor.document;
+                console.log(`Formatting document: ${document.fileName}, Language ID: ${document.languageId}`);
+                
+                // Apply formatting directly using our formatter
+                const edits = formatter.provideDocumentFormattingEdits(document);
+                if (edits && edits.length > 0) {
+                    const edit = new vscode.WorkspaceEdit();
+                    edits.forEach(textEdit => {
+                        edit.replace(document.uri, textEdit.range, textEdit.newText);
+                    });
+                    
+                    const success = await vscode.workspace.applyEdit(edit);
+                    if (success) {
+                        vscode.window.showInformationMessage('AILang document formatted successfully');
+                        console.log('Document formatted successfully');
+                    } else {
+                        vscode.window.showErrorMessage('Failed to apply formatting edits');
+                        console.error('Failed to apply formatting edits');
+                    }
+                } else {
+                    vscode.window.showInformationMessage('No formatting changes needed');
+                    console.log('No formatting changes needed');
+                }
+            } catch (error) {
+                console.error('Error formatting document:', error);
+                vscode.window.showErrorMessage(`Error formatting document: ${error}`);
+            }
+        });
+        context.subscriptions.push(formatCommand);
         
         // Log registration details for debugging
         console.log('Formatter registered with document selectors:', JSON.stringify(documentSelector));

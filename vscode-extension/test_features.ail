@@ -33,7 +33,7 @@ model lstm_model {
 // 1. Missing required parameter
 model invalid_model {
     Dense(units=128)  // Missing activation parameter
-}
+}a
 
 // 2. Invalid activation function
 model invalid_activation {

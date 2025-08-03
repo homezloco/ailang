@@ -7,6 +7,7 @@ import { registerCompletionProvider } from './completionProvider';
 import { registerHoverProvider } from './hoverProvider';
 import { registerDiagnosticProvider } from './diagnosticProvider';
 import { registerCodeActionProvider } from './codeActionProvider';
+import { logDebugInfo } from './debug';
 
 let client: LanguageClient;
 
@@ -40,6 +41,7 @@ export async function activate(context: ExtensionContext) {
         // Register commands and providers
         const validateCommand = commands.registerCommand('ailang.validateFile', validateCurrentFile);
         const formatCommand = commands.registerCommand('ailang.formatFile', formatCurrentFile);
+        const debugCommand = commands.registerCommand('ailang.debugInfo', logDebugInfo);
         
         // Register a command to set the language ID for the current file
         const setLanguageCommand = commands.registerCommand('ailang.setLanguageId', async () => {
@@ -190,14 +192,33 @@ async function validateCurrentFile() {
 }
 
 async function formatCurrentFile() {
-    const editor = window.activeTextEditor;
-    if (!editor || !editor.document || editor.document.languageId !== 'ailang') {
-        window.showWarningMessage('No active AILang document found');
-        return;
+    try {
+        const editor = window.activeTextEditor;
+        if (!editor) {
+            window.showWarningMessage('No active editor found');
+            return;
+        }
+        
+        const document = editor.document;
+        console.log(`Formatting document: ${document.fileName}, Language ID: ${document.languageId}`);
+        
+        // If the file is not recognized as AILang but has .ail extension, set the language ID
+        if (document.languageId !== 'ailang' && document.fileName.endsWith('.ail')) {
+            console.log('Setting language ID to ailang for .ail file');
+            await commands.executeCommand('setEditorLanguage', { languageId: 'ailang' });
+            // Wait a moment for the language ID to be applied
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Use the standard VS Code format command which will use our registered formatter
+        await commands.executeCommand('editor.action.formatDocument');
+        
+        // If the standard format command doesn't work, show a message
+        window.showInformationMessage('AILang format command executed. If no formatting occurred, try setting the language ID first.');
+    } catch (error) {
+        console.error('Error formatting document:', error);
+        window.showErrorMessage(`Error formatting document: ${error}`);
     }
-    
-    // In a real implementation, this would call the formatter
-    window.showInformationMessage('Formatting not yet implemented');
 }
 
 function startLanguageServer(context: ExtensionContext, config: WorkspaceConfiguration) {
