@@ -159,10 +159,37 @@ export class AILangFormatter implements vscode.DocumentFormattingEditProvider, v
 
 // Register the formatter
 export function registerFormatter(context: vscode.ExtensionContext) {
-    const formatter = new AILangFormatter();
-    
-    context.subscriptions.push(
-        vscode.languages.registerDocumentFormattingEditProvider('ailang', formatter),
-        vscode.languages.registerDocumentRangeFormattingEditProvider('ailang', formatter)
-    );
+    try {
+        console.log('Creating AILang formatter instance...');
+        const formatter = new AILangFormatter();
+        console.log('AILang formatter instance created successfully');
+        
+        console.log('Registering document formatting provider for AILang...');
+        const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider('ailang', formatter);
+        context.subscriptions.push(formattingProvider);
+        console.log('Document formatting provider registered successfully');
+        
+        console.log('Registering document range formatting provider for AILang...');
+        const rangeFormattingProvider = vscode.languages.registerDocumentRangeFormattingEditProvider('ailang', formatter);
+        context.subscriptions.push(rangeFormattingProvider);
+        console.log('Document range formatting provider registered successfully');
+        
+        // Register a command to manually trigger formatting
+        console.log('Registering format command...');
+        const formatCommand = vscode.commands.registerCommand('ailang.format', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor && editor.document.languageId === 'ailang') {
+                vscode.commands.executeCommand('editor.action.formatDocument');
+            } else {
+                vscode.window.showWarningMessage('No active AILang document found');
+            }
+        });
+        context.subscriptions.push(formatCommand);
+        console.log('Format command registered successfully');
+        
+        console.log('All formatter registrations completed successfully');
+    } catch (error) {
+        console.error('Error registering formatter:', error);
+        vscode.window.showErrorMessage(`Failed to register AILang formatter: ${error}`);
+    }
 }
