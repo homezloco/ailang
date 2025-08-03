@@ -1,0 +1,6 @@
+model MyModel {
+    Dense(256, relu)
+    Dense(10, softmax)
+    Dense(256, relu)
+    Dense(10, softmax
+}

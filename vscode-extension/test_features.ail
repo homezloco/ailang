@@ -1,0 +1,104 @@
+// AILang Sample: Comprehensive Feature Test
+// This file demonstrates all extension features
+
+// Model definition with syntax highlighting
+model my_neural_network {
+    // Layer completion and parameter validation
+    Dense(units=128, activation='relu', input_shape=(784,))
+    Dropout(rate=0.2)
+    Dense(units=64, activation='relu')
+    Dense(units=10, activation='softmax')
+}
+
+// Alternative model syntax
+model cnn_classifier {
+    Conv2D(filters=32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1))
+    MaxPooling2D(pool_size=(2, 2))
+    Conv2D(filters=64, kernel_size=(3, 3), activation='relu')
+    MaxPooling2D(pool_size=(2, 2))
+    Flatten()
+    Dense(units=128, activation='relu')
+    Dropout(rate=0.5)
+    Dense(units=10, activation='softmax')
+}
+
+// RNN model for sequence data
+model lstm_model {
+    LSTM(units=50, return_sequences=True, input_shape=(100, 1))
+    LSTM(units=50)
+    Dense(units=1, activation='sigmoid')
+}
+
+// Error cases (these should show diagnostics):
+// 1. Missing required parameter
+model invalid_model {
+    Dense(units=128)  // Missing activation parameter
+}
+
+// 2. Invalid activation function
+model invalid_activation {
+    Dense(units=64, activation='invalid_activation')
+}
+
+// 3. Unclosed model
+model unclosed_model {
+    Dense(units=32, activation='relu')
+    // Missing closing brace
+
+// 4. Invalid parameter type
+model invalid_type {
+    Dense(units="not_a_number", activation='relu')
+}
+
+// Training configuration
+compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+fit(
+    epochs=10,
+    batch_size=32,
+    validation_split=0.2
+)
+
+// Additional training configurations
+train(
+    optimizer='sgd',
+    loss='categorical_crossentropy',
+    learning_rate=0.01,
+    epochs=50
+)
+
+// Test various layer types
+model test_layers {
+    Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(100, 1))
+    GlobalMaxPooling1D()
+    Dense(units=50, activation='tanh')
+    Dense(units=2, activation='softmax')
+}
+
+// Test with different optimizers and losses
+model optimizer_test {
+    Dense(units=100, activation='relu', input_shape=(20,))
+    Dense(units=50, activation='relu')
+    Dense(units=1, activation='sigmoid')
+}
+
+compile(
+    optimizer='rmsprop',
+    loss='binary_crossentropy',
+    metrics=['precision', 'recall']
+)
+
+// Test with advanced parameters
+model advanced_model {
+    Dense(units=256, activation='elu', kernel_initializer='he_normal', input_shape=(784,))
+    BatchNormalization()
+    Dropout(rate=0.3)
+    Dense(units=128, activation='elu')
+    BatchNormalization()
+    Dropout(rate=0.3)
+    Dense(units=10, activation='softmax')
+}

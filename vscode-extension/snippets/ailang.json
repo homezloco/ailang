@@ -25,6 +25,79 @@
         ],
         "description": "Create a new AILang model definition"
     },
+    "CNN Model": {
+        "prefix": "cnn",
+        "body": [
+            "model ${1:CNNModel}:",
+            "  # CNN model for image classification",
+            "  input_shape: [${2:28}, ${3:28}, ${4:1}]",
+            "  ",
+            "  layers:",
+            "    - type: conv2d",
+            "      filters: ${5:32}",
+            "      kernel_size: [${6:3}, ${7:3}]",
+            "      activation: relu",
+            "      padding: same",
+            "    - type: max_pooling2d",
+            "      pool_size: [${8:2}, ${9:2}]",
+            "    - type: conv2d",
+            "      filters: ${10:64}",
+            "      kernel_size: [${11:3}, ${12:3}]",
+            "      activation: relu",
+            "      padding: same",
+            "    - type: max_pooling2d",
+            "      pool_size: [${13:2}, ${14:2}]",
+            "    - type: flatten",
+            "    - type: dense",
+            "      units: ${15:128}",
+            "      activation: relu",
+            "    - type: dropout",
+            "      rate: ${16:0.5}",
+            "    - type: dense",
+            "      units: ${17:10}",
+            "      activation: softmax",
+            "  ",
+            "  train:",
+            "    optimizer: adam",
+            "    loss: categorical_crossentropy",
+            "    metrics: [accuracy]",
+            "    epochs: ${18:10}",
+            "    batch_size: ${19:32}"
+        ],
+        "description": "Create a CNN model for image classification"
+    },
+    "LSTM Model": {
+        "prefix": "lstm",
+        "body": [
+            "model ${1:LSTMModel}:",
+            "  # LSTM model for sequence data",
+            "  input_shape: [${2:sequence_length}, ${3:features}]",
+            "  ",
+            "  layers:",
+            "    - type: lstm",
+            "      units: ${4:64}",
+            "      return_sequences: ${5:true}",
+            "    - type: lstm",
+            "      units: ${6:64}",
+            "      return_sequences: ${7:false}",
+            "    - type: dense",
+            "      units: ${8:32}",
+            "      activation: relu",
+            "    - type: dropout",
+            "      rate: ${9:0.2}",
+            "    - type: dense",
+            "      units: ${10:1}",
+            "      activation: ${11:sigmoid}",
+            "  ",
+            "  train:",
+            "    optimizer: adam",
+            "    loss: ${12:binary_crossentropy}",
+            "    metrics: [accuracy]",
+            "    epochs: ${13:15}",
+            "    batch_size: ${14:64}"
+        ],
+        "description": "Create an LSTM model for sequence data"
+    },
     "Dense Layer": {
         "prefix": "dense",
         "body": [
@@ -182,5 +255,197 @@
             "    ${4:param3: ${5:value3}}"
         ],
         "description": "Add a custom layer implementation"
+    },
+    "LSTM Layer": {
+        "prefix": "lstm",
+        "body": [
+            "- type: lstm",
+            "  units: ${1:64}",
+            "  activation: ${2:tanh}",
+            "  recurrent_activation: ${3:sigmoid}",
+            "  use_bias: ${4:true}",
+            "  return_sequences: ${5:false}",
+            "  return_state: ${6:false}",
+            "  go_backwards: ${7:false}",
+            "  stateful: ${8:false}",
+            "  dropout: ${9:0.0}",
+            "  recurrent_dropout: ${10:0.0}"
+        ],
+        "description": "Add an LSTM layer"
+    },
+    "GRU Layer": {
+        "prefix": "gru",
+        "body": [
+            "- type: gru",
+            "  units: ${1:64}",
+            "  activation: ${2:tanh}",
+            "  recurrent_activation: ${3:sigmoid}",
+            "  use_bias: ${4:true}",
+            "  return_sequences: ${5:false}",
+            "  return_state: ${6:false}",
+            "  go_backwards: ${7:false}",
+            "  stateful: ${8:false}",
+            "  dropout: ${9:0.0}",
+            "  recurrent_dropout: ${10:0.0}"
+        ],
+        "description": "Add a GRU layer"
+    },
+    "Bidirectional LSTM": {
+        "prefix": "bilstm",
+        "body": [
+            "- type: bidirectional",
+            "  layer:",
+            "    type: lstm",
+            "    units: ${1:64}",
+            "    activation: ${2:tanh}",
+            "    recurrent_activation: ${3:sigmoid}",
+            "    return_sequences: ${4:true}",
+            "    dropout: ${5:0.0}",
+            "    recurrent_dropout: ${6:0.0}"
+        ],
+        "description": "Add a Bidirectional LSTM layer"
+    },
+    "Embedding Layer": {
+        "prefix": "embedding",
+        "body": [
+            "- type: embedding",
+            "  input_dim: ${1:10000}",
+            "  output_dim: ${2:128}",
+            "  input_length: ${3:100}",
+            "  mask_zero: ${4:false}",
+            "  embeddings_initializer: ${5:random_uniform}",
+            "  embeddings_regularizer: ${6:null}",
+            "  activity_regularizer: ${7:null}",
+            "  embeddings_constraint: ${8:null}"
+        ],
+        "description": "Add an Embedding layer"
+    },
+    "Max Pooling 2D Layer": {
+        "prefix": "maxpool2d",
+        "body": [
+            "- type: max_pooling2d",
+            "  pool_size: [${1:2}, ${2:2}]",
+            "  strides: ${3:null}",
+            "  padding: ${4:valid}"
+        ],
+        "description": "Add a Max Pooling 2D layer"
+    },
+    "Average Pooling 2D Layer": {
+        "prefix": "avgpool2d",
+        "body": [
+            "- type: average_pooling2d",
+            "  pool_size: [${1:2}, ${2:2}]",
+            "  strides: ${3:null}",
+            "  padding: ${4:valid}"
+        ],
+        "description": "Add an Average Pooling 2D layer"
+    },
+    "Flatten Layer": {
+        "prefix": "flatten",
+        "body": [
+            "- type: flatten",
+            "  data_format: ${1:channels_last}"
+        ],
+        "description": "Add a Flatten layer"
+    },
+    "Reshape Layer": {
+        "prefix": "reshape",
+        "body": [
+            "- type: reshape",
+            "  target_shape: [${1:1}, ${2:28}, ${3:28}]"
+        ],
+        "description": "Add a Reshape layer"
+    },
+    "Concatenate Layer": {
+        "prefix": "concat",
+        "body": [
+            "- type: concatenate",
+            "  inputs: [${1:layer1_output}, ${2:layer2_output}]",
+            "  axis: ${3:-1}"
+        ],
+        "description": "Add a Concatenate layer"
+    },
+    "Transfer Learning Model": {
+        "prefix": "transfer",
+        "body": [
+            "model ${1:TransferModel}:",
+            "  # Transfer learning model using pre-trained base",
+            "  input_shape: [${2:224}, ${3:224}, ${4:3}]",
+            "  ",
+            "  base_model:",
+            "    type: ${5|VGG16,ResNet50,MobileNet,EfficientNet,InceptionV3|}",
+            "    weights: imagenet",
+            "    include_top: false",
+            "    trainable: false",
+            "  ",
+            "  layers:",
+            "    - type: global_average_pooling2d",
+            "    - type: dense",
+            "      units: ${6:256}",
+            "      activation: relu",
+            "    - type: dropout",
+            "      rate: ${7:0.5}",
+            "    - type: dense",
+            "      units: ${8:10}",
+            "      activation: softmax",
+            "  ",
+            "  train:",
+            "    optimizer: adam(learning_rate=0.0001)",
+            "    loss: categorical_crossentropy",
+            "    metrics: [accuracy]",
+            "    epochs: ${9:20}",
+            "    batch_size: ${10:32}",
+            "    callbacks:",
+            "      - type: early_stopping",
+            "        monitor: val_loss",
+            "        patience: 5",
+            "        restore_best_weights: true",
+            "      - type: model_checkpoint",
+            "        filepath: best_model.h5",
+            "        save_best_only: true",
+            "        monitor: val_accuracy"
+        ],
+        "description": "Create a transfer learning model using a pre-trained base"
+    },
+    "Autoencoder Model": {
+        "prefix": "autoencoder",
+        "body": [
+            "model ${1:Autoencoder}:",
+            "  # Autoencoder model for dimensionality reduction or denoising",
+            "  input_shape: [${2:784}]",
+            "  ",
+            "  # Encoder",
+            "  encoder:",
+            "    - type: dense",
+            "      units: ${3:128}",
+            "      activation: relu",
+            "    - type: dense",
+            "      units: ${4:64}",
+            "      activation: relu",
+            "    - type: dense",
+            "      units: ${5:32}",
+            "      activation: relu",
+            "  ",
+            "  # Decoder",
+            "  decoder:",
+            "    - type: dense",
+            "      units: ${6:64}",
+            "      activation: relu",
+            "    - type: dense",
+            "      units: ${7:128}",
+            "      activation: relu",
+            "    - type: dense",
+            "      units: ${8:784}",
+            "      activation: sigmoid",
+            "  ",
+            "  train:",
+            "    optimizer: adam",
+            "    loss: mse",
+            "    metrics: [mae]",
+            "    epochs: ${9:50}",
+            "    batch_size: ${10:128}",
+            "    validation_split: 0.2"
+        ],
+        "description": "Create an autoencoder model for dimensionality reduction or denoising"
     }
 }

@@ -1,27 +1,116 @@
 import * as path from 'path';
-import { workspace, ExtensionContext, commands, window, WorkspaceConfiguration } from 'vscode';
+import * as vscode from 'vscode';
+import { workspace, ExtensionContext, commands, window, WorkspaceConfiguration, Progress, Uri } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import { registerFormatter } from './formatter';
+import { registerCompletionProvider } from './completionProvider';
+import { registerHoverProvider } from './hoverProvider';
+import { registerDiagnosticProvider } from './diagnosticProvider';
 
 let client: LanguageClient;
 
-export function activate(context: ExtensionContext) {
-    // Get the configuration
-    const config = workspace.getConfiguration('ailang');
-    
-    // Register commands
-    const validateCommand = commands.registerCommand('ailang.validateFile', validateCurrentFile);
-    const formatCommand = commands.registerCommand('ailang.formatFile', formatCurrentFile);
-    
-    context.subscriptions.push(validateCommand, formatCommand);
-    
-    // Start the language server
-    startLanguageServer(context, config);
+export async function activate(context: ExtensionContext) {
+    console.log('AILang extension is activating...');
     
     // Show welcome message
-    window.showInformationMessage('AILang extension is now active!');
+    const showWelcome = async () => {
+        try {
+            const selection = await window.showInformationMessage(
+                'AILang extension is now active!',
+                'Open Documentation',
+                'Got it!'
+            );
+            
+            if (selection === 'Open Documentation') {
+                commands.executeCommand('vscode.open', Uri.parse('https://github.com/yourusername/ailang#readme'));
+            }
+        } catch (error) {
+            console.error('Error in showWelcome:', error);
+        }
+    };
+    
+    try {
+        // Register the welcome command
+        const welcomeCommand = commands.registerCommand('ailang.showWelcome', showWelcome);
+        
+        // Get the configuration
+        const config = workspace.getConfiguration('ailang');
+        
+        // Register commands and providers
+        const validateCommand = commands.registerCommand('ailang.validateFile', validateCurrentFile);
+        const formatCommand = commands.registerCommand('ailang.formatFile', formatCurrentFile);
+        
+        // Register providers with error handling
+        try {
+            console.log('Registering hover provider...');
+            registerHoverProvider(context);
+            console.log('Hover provider registered successfully');
+        } catch (error) {
+            console.error('Failed to register hover provider:', error);
+            window.showErrorMessage(`Failed to register hover provider: ${error}`);
+        }
+        
+        // Add commands to subscriptions
+        context.subscriptions.push(
+            welcomeCommand,
+            validateCommand, 
+            formatCommand
+        );
+        
+        // Start the language server
+        console.log('Starting language server...');
+        startLanguageServer(context, config);
+        
+        // Show welcome message on first activation
+        const isFirstActivation = context.globalState.get('isFirstActivation', true);
+        if (isFirstActivation) {
+            await showWelcome();
+            await context.globalState.update('isFirstActivation', false);
+        }
+        
+        console.log('AILang extension is now active!');
+        
+        // Register the formatter
+        try {
+            console.log('Registering formatter...');
+            registerFormatter(context);
+            console.log('Formatter registered successfully');
+        } catch (error) {
+            console.error('Failed to register formatter:', error);
+        }
+        
+        // Register the completion provider
+        try {
+            console.log('Registering completion provider...');
+            registerCompletionProvider(context);
+            console.log('Completion provider registered successfully');
+        } catch (error) {
+            console.error('Failed to register completion provider:', error);
+        }
+
+        // Register the diagnostic provider
+        try {
+            console.log('Registering diagnostic provider...');
+            registerDiagnosticProvider(context);
+            console.log('Diagnostic provider registered successfully');
+        } catch (error) {
+            console.error('Failed to register diagnostic provider:', error);
+        }
+        
+        console.log('All providers registered successfully');
+        
+        // Log the current document language modes for debugging
+        workspace.textDocuments.forEach(doc => {
+            console.log(`Document: ${doc.fileName}, Language: ${doc.languageId}`);
+        });
+        
+    } catch (error) {
+        console.error('Error during AILang extension activation:', error);
+        window.showErrorMessage(`AILang extension failed to activate: ${error}`);
+    }
 }
 
-export function deactivate(): Thenable<void> | undefined {
+export function deactivate(): vscode.ProviderResult<void> {
     if (!client) {
         return undefined;
     }
@@ -40,10 +129,10 @@ async function validateCurrentFile() {
     try {
         // Show progress indicator
         await window.withProgress({
-            location: window.ProgressLocation.Notification,
+            location: vscode.ProgressLocation.Notification,
             title: 'Validating AILang file',
             cancellable: false
-        }, async (progress) => {
+        }, async (progress: Progress<{ message?: string; increment?: number }>) => {
             progress.report({ message: 'Running validations...' });
             
             // In a real implementation, this would call the language server
@@ -60,8 +149,9 @@ async function validateCurrentFile() {
                 window.showWarningMessage(`Found ${diagnostics.length} issue(s) in the current file`);
             }
         });
-    } catch (error) {
-        window.showErrorMessage(`Validation failed: ${error.message}`);
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        window.showErrorMessage(`Validation failed: ${errorMessage}`);
     }
 }
 

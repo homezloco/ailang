@@ -1,0 +1,65 @@
+# Simple Sequential Model
+model = Sequential(
+    # Input layer with shape (batch_size, 28, 28, 1)
+    Input(shape=(28, 28, 1)),
+    
+    # First convolutional block
+    Conv2D(filters=32, kernel_size=(3, 3), activation='relu'),
+    BatchNormalization(),
+    MaxPooling2D(pool_size=(2, 2)),
+    Dropout(0.25),
+    
+    # Second convolutional block
+    Conv2D(filters=64, kernel_size=(3, 3), activation='relu'),
+    BatchNormalization(),
+    MaxPooling2D(pool_size=(2, 2)),
+    Dropout(0.25),
+    
+    # Flatten and dense layers
+    Flatten(),
+    Dense(units=128, activation='relu'),
+    Dropout(0.5),
+    Dense(units=10, activation='softmax')
+)
+
+# Compile the model
+model.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Training configuration
+train_config = {
+    'batch_size': 32,
+    'epochs': 10,
+    'validation_split': 0.2,
+    'callbacks': [
+        EarlyStopping(patience=3, restore_best_weights=True),
+        ReduceLROnPlateau(factor=0.1, patience=2)
+    ]
+}
+
+# Data augmentation
+data_augmentation = Sequential([
+    RandomRotation(0.1),
+    RandomZoom(0.1),
+    RandomWidth(0.1, 0.1)
+])
+
+# Custom layer example
+@layer
+def double_dense(units, activation='relu'):
+    return Sequential([
+        Dense(units, activation=activation),
+        Dense(units//2, activation=activation)
+        Dense
+    ])
+
+# Example of using the custom layer
+custom_model = Sequential([
+    Input(shape=(100,)),
+    double_dense(64),
+    Dropout(0.5),
+    Dense(10, activation='softmax')
+])

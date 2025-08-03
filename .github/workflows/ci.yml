@@ -10,7 +10,7 @@ on:
     - cron: '0 0 * * 0'
 
 # Allow manual workflow runs
-workflow_dispatch:
+  workflow_dispatch:
 
 # Set environment variables
 env:
@@ -95,11 +95,12 @@ jobs:
     
     - name: Publish to PyPI
       if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        twine upload dist/*
+      # Use GitHub's recommended approach for PyPI publishing
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.GITHUB_TOKEN }}
+        packages-dir: dist/
 
   pre-commit:
     name: Pre-commit
@@ -110,4 +111,3 @@ jobs:
     - uses: pre-commit/action@v3.0.0
       with:
         extra_args: --all-files --show-diff-on-failure
-        token: ${{ secrets.GITHUB_TOKEN }}

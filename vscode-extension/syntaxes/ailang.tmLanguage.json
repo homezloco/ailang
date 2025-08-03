@@ -4,43 +4,37 @@
     "scopeName": "source.ailang",
     "fileTypes": ["ail"],
     "patterns": [
-        {
-            "include": "#comments"
-        },
-        {
-            "include": "#keywords"
-        },
-        {
-            "include": "#strings"
-        },
-        {
-            "include": "#numbers"
-        },
-        {
-            "include": "#operators"
-        },
-        {
-            "include": "#brackets"
-        },
-        {
-            "include": "#constants"
-        },
-        {
-            "include": "#types"
-        }
+        {"include": "#comments"},
+        {"include": "#functions"},
+        {"include": "#parameters"},
+        {"include": "#keywords"},
+        {"include": "#strings"},
+        {"include": "#numbers"},
+        {"include": "#operators"},
+        {"include": "#brackets"},
+        {"include": "#constants"},
+        {"include": "#types"},
+        {"include": "#layers"},
+        {"include": "#activations"},
+        {"include": "#optimizers"},
+        {"include": "#losses"}
     ],
     "repository": {
         "comments": {
-            "patterns": [
-                {
-                    "name": "comment.line.number-sign.ailang",
-                    "match": "#.*$"
-                }
-            ]
+            "name": "comment.line.number-sign.ailang",
+            "match": "#.*$"
+        },
+        "functions": {
+            "name": "entity.name.function.ailang",
+            "match": "\\b(Sequential|Model|Input|add|compile|fit|evaluate|predict|save|load|summary)\\b"
+        },
+        "parameters": {
+            "name": "variable.parameter.ailang",
+            "match": "\\b(shape|units|filters|kernel_size|strides|padding|activation|use_bias|trainable|name|dtype)\\b"
         },
         "keywords": {
             "name": "keyword.control.ailang",
-            "match": "\\b(model|layers|train|type|optimizer|loss|metrics|epochs|batch_size|validation_split|callbacks|input_shape|output_shape|activation|filters|kernel_size|strides|padding|pool_size|units|dropout|rate|regularizer|constraint|use_bias|kernel_initializer|bias_initializer|kernel_regularizer|bias_regularizer|activity_regularizer|kernel_constraint|bias_constraint|recurrent_initializer|recurrent_regularizer|recurrent_constraint|return_sequences|return_state|go_backwards|stateful|unroll|time_major|implementation|reset_after|recurrent_dropout|recurrent_activation|trainable|dtype|dynamic|input_dim|input_length|input_shape|mask_zero|name|output_dim|weights|embeddings_initializer|embeddings_regularizer|embeddings_constraint|sparse)\\b"
+            "match": "\\b(model|layers|train|type|optimizer|loss|metrics|epochs|batch_size|validation_split|callbacks|input_shape|output_shape)\\b"
         },
         "strings": {
             "name": "string.quoted.double.ailang",
@@ -63,30 +57,12 @@
         },
         "brackets": {
             "patterns": [
-                {
-                    "name": "punctuation.definition.array.begin.ailang",
-                    "match": "\\["
-                },
-                {
-                    "name": "punctuation.definition.array.end.ailang",
-                    "match": "\\]"
-                },
-                {
-                    "name": "punctuation.definition.dictionary.begin.ailang",
-                    "match": "\\("
-                },
-                {
-                    "name": "punctuation.definition.dictionary.end.ailang",
-                    "match": "\\)"
-                },
-                {
-                    "name": "punctuation.definition.block.begin.ailang",
-                    "match": "\\.\\{"
-                },
-                {
-                    "name": "punctuation.definition.block.end.ailang",
-                    "match": "\\}"
-                }
+                {"name": "punctuation.definition.array.begin.ailang", "match": "\\["},
+                {"name": "punctuation.definition.array.end.ailang", "match": "\\]"},
+                {"name": "punctuation.definition.dictionary.begin.ailang", "match": "\\("},
+                {"name": "punctuation.definition.dictionary.end.ailang", "match": "\\)"},
+                {"name": "punctuation.definition.block.begin.ailang", "match": "\\\\.\\{"},
+                {"name": "punctuation.definition.block.end.ailang", "match": "\\}"}
             ]
         },
         "constants": {
@@ -95,7 +71,23 @@
         },
         "types": {
             "name": "support.type.ailang",
-            "match": "\\b(dense|conv2d|conv1d|conv3d|maxpooling1d|maxpooling2d|maxpooling3d|averagepooling1d|averagepooling2d|averagepooling3d|globalmaxpooling1d|globalmaxpooling2d|globalaveragepooling1d|globalaveragepooling2d|batchnormalization|dropout|flatten|reshape|permute|repeatvector|lambda|activityregularization|masking|spatialdropout1d|spatialdropout2d|spatialdropout3d|gaussiannoise|gaussiandropout|alphadropout|activation|leakyrelu|prelu|elu|thresholdedrelu|softmax|relu|sigmoid|hard_sigmoid|tanh|selu|softplus|softsign|exponential|linear|adam|sgd|rmsprop|adagrad|adadelta|adamax|nadam|ftrl|categorical_crossentropy|sparse_categorical_crossentropy|binary_crossentropy|mean_squared_error|mean_absolute_error|mean_absolute_percentage_error|mean_squared_logarithmic_error|squared_hinge|hinge|categorical_hinge|logcosh|huber_loss|accuracy|binary_accuracy|categorical_accuracy|sparse_categorical_accuracy|top_k_categorical_accuracy|sparse_top_k_categorical_accuracy|cosine_similarity|mse|mae|mape|msle|kld|kullback_leibler_divergence|poisson|cosine_proximity|he_normal|he_uniform|glorot_normal|glorot_uniform|lecun_normal|lecun_uniform|orthogonal|identity|zeros|ones|constant|variance_scaling|truncated_normal|uniform|random_normal|random_uniform|l1|l2|l1_l2|unit_norm|min_max_norm|non_neg|max_norm|constraint_maxnorm|constraint_minmaxnorm|constraint_nonneg|constraint_unitnorm|constraint_radial|constraint_minmax|constraint_min|constraint_max|constraint_positive|constraint_negative|constraint_positive_small|constraint_negative_small|constraint_positive_large|constraint_negative_large|constraint_positive_huge|constraint_negative_huge|constraint_positive_small_abs|constraint_negative_small_abs|constraint_positive_large_abs|constraint_negative_large_abs|constraint_positive_huge_abs|constraint_negative_huge_abs|constraint_positive_small_abs_2|constraint_negative_small_abs_2|constraint_positive_large_abs_2|constraint_negative_large_abs_2|constraint_positive_huge_abs_2|constraint_negative_huge_abs_2|constraint_positive_small_abs_3|constraint_negative_small_abs_3|constraint_positive_large_abs_3|constraint_negative_large_abs_3|constraint_positive_huge_abs_3|constraint_negative_huge_abs_3|constraint_positive_small_abs_4|constraint_negative_small_abs_4|constraint_positive_large_abs_4|constraint_negative_large_abs_4|constraint_positive_huge_abs_4|constraint_negative_huge_abs_4|constraint_positive_small_abs_5|constraint_negative_small_abs_5|constraint_positive_large_abs_5|constraint_negative_large_abs_5|constraint_positive_huge_abs_5|constraint_negative_huge_abs_5|constraint_positive_small_abs_6|constraint_negative_small_abs_6|constraint_positive_large_abs_6|constraint_negative_large_abs_6|constraint_positive_huge_abs_6|constraint_negative_huge_abs_6|constraint_positive_small_abs_7|constraint_negative_small_abs_7|constraint_positive_large_abs_7|constraint_negative_large_abs_7|constraint_positive_huge_abs_7|constraint_negative_huge_abs_7|constraint_positive_small_abs_8|constraint_negative_small_abs_8|constraint_positive_large_abs_8|constraint_negative_large_abs_8|constraint_positive_huge_abs_8|constraint_negative_huge_abs_8|constraint_positive_small_abs_9|constraint_negative_small_abs_9|constraint_positive_large_abs_9|constraint_negative_large_abs_9|constraint_positive_huge_abs_9|constraint_negative_huge_abs_9|constraint_positive_small_abs_10|constraint_negative_small_abs_10|constraint_positive_large_abs_10|constraint_negative_large_abs_10|constraint_positive_huge_abs_10|constraint_negative_huge_abs_10)\\b"
+            "match": "\\b(int|float|str|bool|list|dict|tuple|Tensor|Model|Layer|Optimizer|Loss|Metric)\\b"
+        },
+        "layers": {
+            "name": "support.type.layer.ailang",
+            "match": "\\b(Dense|Conv1D|Conv2D|Conv3D|LSTM|GRU|SimpleRNN|TimeDistributed|Bidirectional|Embedding|Flatten|Reshape|Permute|RepeatVector|Lambda|Dropout|SpatialDropout1D|SpatialDropout2D|BatchNormalization|LayerNormalization|MaxPooling1D|MaxPooling2D|AveragePooling1D|AveragePooling2D|GlobalMaxPooling1D|GlobalMaxPooling2D|GlobalAveragePooling1D|GlobalAveragePooling2D)\\b"
+        },
+        "activations": {
+            "name": "support.function.activation.ailang",
+            "match": "\\b(relu|sigmoid|tanh|softmax|softplus|softsign|selu|elu|exponential|linear|leaky_relu|prelu|thresholded_relu|hard_sigmoid)\\b"
+        },
+        "optimizers": {
+            "name": "support.type.optimizer.ailang",
+            "match": "\\b(SGD|RMSprop|Adagrad|Adadelta|Adam|Adamax|Nadam|Ftrl)\\b"
+        },
+        "losses": {
+            "name": "support.type.loss.ailang",
+            "match": "\\b(MeanSquaredError|MeanAbsoluteError|MeanAbsolutePercentageError|MeanSquaredLogarithmicError|BinaryCrossentropy|CategoricalCrossentropy|SparseCategoricalCrossentropy|Hinge|SquaredHinge|CategoricalHinge|LogCosh|Huber|KLDivergence|Poisson|CosineSimilarity|BinaryFocalCrossentropy|Huber|LogCosh)\\b"
         }
     }
 }
