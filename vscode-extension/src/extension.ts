@@ -6,6 +6,7 @@ import { registerFormatter } from './formatter';
 import { registerCompletionProvider } from './completionProvider';
 import { registerHoverProvider } from './hoverProvider';
 import { registerDiagnosticProvider } from './diagnosticProvider';
+import { registerCodeActionProvider } from './codeActionProvider';
 
 let client: LanguageClient;
 
@@ -95,6 +96,15 @@ export async function activate(context: ExtensionContext) {
             console.log('Diagnostic provider registered successfully');
         } catch (error) {
             console.error('Failed to register diagnostic provider:', error);
+        }
+        
+        // Register the code action provider
+        try {
+            console.log('Registering code action provider...');
+            registerCodeActionProvider(context);
+            console.log('Code action provider registered successfully');
+        } catch (error) {
+            console.error('Failed to register code action provider:', error);
         }
         
         console.log('All providers registered successfully');

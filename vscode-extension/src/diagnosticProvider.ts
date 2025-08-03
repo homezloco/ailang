@@ -324,62 +324,702 @@ export class AILangDiagnosticProvider {
         return diagnostics;
     }
 
+    /**
+     * Validates number parameters
+     */
+    private validateNumberParameter(key: string, value: string, rule: any, line: number, diagnostics: vscode.Diagnostic[]): void {
+        if (isNaN(Number(value))) {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Parameter '${key}' should be a number, got: '${value}'`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'type-error'
+            });
+        } else {
+            const numValue = Number(value);
+            // Range checking
+            if (rule.min !== undefined && numValue < rule.min) {
+                const range = new vscode.Range(line, 0, line, 50);
+                diagnostics.push({
+                    range,
+                    message: `Parameter '${key}' should be at least ${rule.min}, got: ${numValue}`,
+                    severity: vscode.DiagnosticSeverity.Error,
+                    code: 'range-error'
+                });
+            }
+            if (rule.max !== undefined && numValue > rule.max) {
+                const range = new vscode.Range(line, 0, line, 50);
+                diagnostics.push({
+                    range,
+                    message: `Parameter '${key}' should be at most ${rule.max}, got: ${numValue}`,
+                    severity: vscode.DiagnosticSeverity.Error,
+                    code: 'range-error'
+                });
+            }
+        }
+    }
+
+    /**
+     * Validates enum parameters (string with predefined values)
+     */
+    private validateEnumParameter(key: string, value: string, rule: any, line: number, diagnostics: vscode.Diagnostic[]): void {
+        if (!rule.values?.includes(value)) {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Invalid value for '${key}': '${value}'. Valid options: ${rule.values?.join(', ')}`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'invalid-value'
+            });
+        }
+    }
+
+    /**
+     * Validates boolean parameters
+     */
+    private validateBooleanParameter(key: string, value: string, line: number, diagnostics: vscode.Diagnostic[]): void {
+        if (value !== 'true' && value !== 'false') {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Parameter '${key}' should be a boolean (true/false), got: '${value}'`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'type-error'
+            });
+        }
+    }
+
+    /**
+     * Validates tuple parameters (e.g., (28, 28, 1))
+     */
+    private validateTupleParameter(key: string, value: string, line: number, diagnostics: vscode.Diagnostic[]): void {
+        // Enhanced tuple validation with better error messages
+        const tupleMatch = value.match(/^\(\s*\d+(?:\s*,\s*\d+)*\s*\)$/);
+        if (!tupleMatch) {
+            const range = new vscode.Range(line, 0, line, 50);
+            
+            // Provide more specific error messages based on common mistakes
+            if (value.indexOf('(') === -1 || value.indexOf(')') === -1) {
+                diagnostics.push({
+                    range,
+                    message: `Parameter '${key}' should be a tuple enclosed in parentheses (e.g., (28, 28, 1)), got: '${value}'`,
+                    severity: vscode.DiagnosticSeverity.Error,
+                    code: 'tuple-format-error'
+                });
+            } else if (!/\d/.test(value)) {
+                diagnostics.push({
+                    range,
+                    message: `Parameter '${key}' should contain numeric values (e.g., (28, 28, 1)), got: '${value}'`,
+                    severity: vscode.DiagnosticSeverity.Error,
+                    code: 'tuple-content-error'
+                });
+            } else {
+                diagnostics.push({
+                    range,
+                    message: `Parameter '${key}' should be a tuple (e.g., (28, 28, 1)), got: '${value}'`,
+                    severity: vscode.DiagnosticSeverity.Error,
+                    code: 'type-error'
+                });
+            }
+        }
+    }
+
+    /**
+     * Validates object parameters (e.g., {l1: 0.01, l2: 0.001})
+     */
+    private validateObjectParameter(key: string, value: string, rule: any, line: number, diagnostics: vscode.Diagnostic[]): void {
+        // Check if the value looks like an object (starts with { and ends with })
+        if (!value.trim().startsWith('{') || !value.trim().endsWith('}')) {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Parameter '${key}' should be an object (e.g., {prop1: value1, prop2: value2}), got: '${value}'`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'object-format-error'
+            });
+            return;
+        }
+
+        // Try to parse the object-like string
+        try {
+            // Remove the curly braces and split by commas
+            const objContent = value.trim().slice(1, -1).trim();
+            const properties = objContent.split(',').map(prop => prop.trim());
+            
+            // Process each property
+            properties.forEach(prop => {
+                if (!prop) return; // Skip empty properties
+                
+                const [propKey, propValue] = prop.split(':').map(p => p.trim());
+                
+                if (!propKey || !propValue) {
+                    const range = new vscode.Range(line, 0, line, 50);
+                    diagnostics.push({
+                        range,
+                        message: `Invalid property format in object '${key}': '${prop}'. Expected 'key: value'`,
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: 'object-property-error'
+                    });
+                    return;
+                }
+                
+                // Check if the property is valid for this object type
+                if (rule.properties && !rule.properties[propKey]) {
+                    const range = new vscode.Range(line, 0, line, 50);
+                    diagnostics.push({
+                        range,
+                        message: `Unknown property '${propKey}' in object '${key}'`,
+                        severity: vscode.DiagnosticSeverity.Warning,
+                        code: 'unknown-object-property'
+                    });
+                    return;
+                }
+                
+                // Validate property value if we have a rule for it
+                if (rule.properties && rule.properties[propKey]) {
+                    const propRule = rule.properties[propKey];
+                    
+                    if (propRule.type === 'number') {
+                        this.validateNumberParameter(propKey, propValue, propRule, line, diagnostics);
+                    } else if (propRule.type === 'string' && propRule.values) {
+                        this.validateEnumParameter(propKey, propValue, propRule, line, diagnostics);
+                    } else if (propRule.type === 'boolean') {
+                        this.validateBooleanParameter(propKey, propValue, line, diagnostics);
+                    }
+                }
+            });
+        } catch (error) {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Error parsing object parameter '${key}': ${error.message}`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'object-parse-error'
+            });
+        }
+    }
+
+    /**
+     * Validates optimizer parameters
+     */
+    private validateOptimizerParameters(optimizerName: string, paramsStr: string, rules: { [param: string]: any }, line: number, diagnostics: vscode.Diagnostic[]): void {
+        // Skip validation if params string is empty
+        if (!paramsStr.trim()) {
+            return;
+        }
+
+        try {
+            // Split the parameters string by commas, but handle the case where commas might be inside nested structures
+            const params = this.splitOptimizerParams(paramsStr);
+            
+            params.forEach(param => {
+                // Split each parameter by '=' to get key-value pairs
+                const [key, value] = param.split('=').map(p => p.trim());
+                
+                if (!key || !value) {
+                    const range = new vscode.Range(line, 0, line, 50);
+                    diagnostics.push({
+                        range,
+                        message: `Invalid parameter format in optimizer '${optimizerName}': '${param}'. Expected 'key=value'`,
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: 'optimizer-param-format-error'
+                    });
+                    return;
+                }
+                
+                // Check if the parameter is valid for this optimizer
+                if (!rules[key]) {
+                    const range = new vscode.Range(line, 0, line, 50);
+                    diagnostics.push({
+                        range,
+                        message: `Unknown parameter '${key}' for optimizer '${optimizerName}'`,
+                        severity: vscode.DiagnosticSeverity.Warning,
+                        code: 'unknown-optimizer-param'
+                    });
+                    return;
+                }
+                
+                // Validate parameter value based on its type
+                const rule = rules[key];
+                if (rule.type === 'number') {
+                    this.validateNumberParameter(key, value, rule, line, diagnostics);
+                } else if (rule.type === 'string' && rule.values) {
+                    this.validateEnumParameter(key, value, rule, line, diagnostics);
+                } else if (rule.type === 'boolean') {
+                    this.validateBooleanParameter(key, value, line, diagnostics);
+                } else if (rule.type === 'object') {
+                    this.validateObjectParameter(key, value, rule, line, diagnostics);
+                }
+            });
+        } catch (error) {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Error parsing optimizer parameters: ${error.message}`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'optimizer-parse-error'
+            });
+        }
+    }
+
+    /**
+     * Helper method to split optimizer parameters string by commas,
+     * but respecting nested structures like objects and arrays
+     */
+    private splitOptimizerParams(paramsStr: string): string[] {
+        const result: string[] = [];
+        let current = '';
+        let depth = 0;
+        
+        for (let i = 0; i < paramsStr.length; i++) {
+            const char = paramsStr[i];
+            
+            if ((char === '{' || char === '[' || char === '(')) {
+                depth++;
+                current += char;
+            } else if ((char === '}' || char === ']' || char === ')')) {
+                depth--;
+                current += char;
+            } else if (char === ',' && depth === 0) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        
+        if (current.trim()) {
+            result.push(current.trim());
+        }
+        
+        return result;
+    }
+
+    /**
+     * Validates array parameters (e.g., [1, 2, 3])
+     */
+    private validateArrayParameter(key: string, value: string, rule: any, line: number, diagnostics: vscode.Diagnostic[]): void {
+        // Check if the value looks like an array (starts with [ and ends with ])
+        if (!value.trim().startsWith('[') || !value.trim().endsWith(']')) {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Parameter '${key}' should be an array (e.g., [1, 2, 3]), got: '${value}'`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'array-format-error'
+            });
+            return;
+        }
+
+        // Try to parse the array-like string
+        try {
+            // Remove the brackets and split by commas
+            const arrayContent = value.trim().slice(1, -1).trim();
+            const items = arrayContent.split(',').map(item => item.trim());
+            
+            // If we have item validation rules, check each item
+            if (rule.items) {
+                items.forEach((item, index) => {
+                    if (!item) return; // Skip empty items
+                    
+                    if (rule.items.type === 'number') {
+                        this.validateNumberParameter(`${key}[${index}]`, item, rule.items, line, diagnostics);
+                    } else if (rule.items.type === 'string' && rule.items.values) {
+                        this.validateEnumParameter(`${key}[${index}]`, item, rule.items, line, diagnostics);
+                    } else if (rule.items.type === 'boolean') {
+                        this.validateBooleanParameter(`${key}[${index}]`, item, line, diagnostics);
+                    }
+                });
+            }
+        } catch (error) {
+            const range = new vscode.Range(line, 0, line, 50);
+            diagnostics.push({
+                range,
+                message: `Error parsing array parameter '${key}': ${error.message}`,
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'array-parse-error'
+            });
+        }
+    }
+
     private validateTypeErrors(lines: string[], structure: any): vscode.Diagnostic[] {
         const diagnostics: vscode.Diagnostic[] = [];
 
-        // Layer-specific validation rules
-        const layerValidationRules: { [key: string]: { [param: string]: { type: string, values?: string[], min?: number, max?: number, required?: boolean } } } = {
+        // Layer-specific validation rules with enhanced type checking
+        interface ValidationRule {
+            type: string;
+            values?: string[];
+            min?: number;
+            max?: number;
+            required?: boolean;
+            format?: RegExp;
+            items?: ValidationRule;
+            properties?: { [key: string]: ValidationRule };
+            description?: string;
+        }
+        
+        const layerValidationRules: { [key: string]: { [param: string]: ValidationRule } } = {
             'Dense': {
-                'units': { type: 'number', min: 1, required: true },
-                'activation': { type: 'string', values: ['relu', 'sigmoid', 'tanh', 'softmax', 'linear', 'elu', 'selu', 'softplus', 'softsign', 'leaky_relu', 'prelu', 'thresholded_relu'] },
-                'use_bias': { type: 'boolean' },
-                'kernel_initializer': { type: 'string', values: ['zeros', 'ones', 'random_normal', 'random_uniform', 'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform'] },
-                'bias_initializer': { type: 'string', values: ['zeros', 'ones', 'random_normal', 'random_uniform'] }
+                'units': { 
+                    type: 'number', 
+                    min: 1, 
+                    required: true,
+                    description: 'Number of output neurons in the layer'
+                },
+                'activation': { 
+                    type: 'string', 
+                    values: ['relu', 'sigmoid', 'tanh', 'softmax', 'linear', 'elu', 'selu', 'softplus', 'softsign', 'leaky_relu', 'prelu', 'thresholded_relu'],
+                    description: 'Activation function to use'
+                },
+                'use_bias': { 
+                    type: 'boolean',
+                    description: 'Whether the layer uses a bias vector'
+                },
+                'kernel_initializer': { 
+                    type: 'string', 
+                    values: ['zeros', 'ones', 'random_normal', 'random_uniform', 'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform'],
+                    description: 'Initializer for the kernel weights matrix'
+                },
+                'bias_initializer': { 
+                    type: 'string', 
+                    values: ['zeros', 'ones', 'random_normal', 'random_uniform'],
+                    description: 'Initializer for the bias vector'
+                },
+                'kernel_regularizer': {
+                    type: 'object',
+                    properties: {
+                        'l1': { type: 'number', min: 0 },
+                        'l2': { type: 'number', min: 0 }
+                    },
+                    description: 'Regularizer function applied to the kernel weights matrix'
+                }
             },
             'Conv2D': {
-                'filters': { type: 'number', min: 1, required: true },
-                'kernel_size': { type: 'number', min: 1, required: true },
-                'strides': { type: 'number', min: 1 },
-                'padding': { type: 'string', values: ['valid', 'same'] },
-                'activation': { type: 'string', values: ['relu', 'sigmoid', 'tanh', 'softmax', 'linear', 'elu', 'selu', 'softplus', 'softsign', 'leaky_relu'] },
-                'use_bias': { type: 'boolean' }
+                'filters': { 
+                    type: 'number', 
+                    min: 1, 
+                    required: true,
+                    description: 'Number of output filters in the convolution'
+                },
+                'kernel_size': { 
+                    type: 'tuple', 
+                    required: true,
+                    description: 'Height and width of the 2D convolution window'
+                },
+                'strides': { 
+                    type: 'tuple',
+                    description: 'Strides of the convolution along height and width'
+                },
+                'padding': { 
+                    type: 'string', 
+                    values: ['valid', 'same'],
+                    description: 'Padding method'
+                },
+                'activation': { 
+                    type: 'string', 
+                    values: ['relu', 'sigmoid', 'tanh', 'softmax', 'linear', 'elu', 'selu', 'softplus', 'softsign', 'leaky_relu'],
+                    description: 'Activation function to use'
+                },
+                'use_bias': { 
+                    type: 'boolean',
+                    description: 'Whether the layer uses a bias vector'
+                },
+                'data_format': {
+                    type: 'string',
+                    values: ['channels_last', 'channels_first'],
+                    description: 'The ordering of the dimensions in the inputs'
+                }
             },
             'MaxPooling2D': {
-                'pool_size': { type: 'number', min: 1, required: true },
-                'strides': { type: 'number', min: 1 },
-                'padding': { type: 'string', values: ['valid', 'same'] }
+                'pool_size': { 
+                    type: 'tuple', 
+                    required: true,
+                    description: 'Factors by which to downscale in each dimension'
+                },
+                'strides': { 
+                    type: 'tuple',
+                    description: 'Strides values'
+                },
+                'padding': { 
+                    type: 'string', 
+                    values: ['valid', 'same'],
+                    description: 'Padding method'
+                },
+                'data_format': {
+                    type: 'string',
+                    values: ['channels_last', 'channels_first'],
+                    description: 'The ordering of the dimensions in the inputs'
+                }
             },
             'Dropout': {
-                'rate': { type: 'number', min: 0, max: 1, required: true }
+                'rate': { 
+                    type: 'number', 
+                    min: 0, 
+                    max: 1, 
+                    required: true,
+                    description: 'Fraction of the input units to drop'
+                },
+                'noise_shape': {
+                    type: 'tuple',
+                    description: 'Shape of the binary dropout mask'
+                },
+                'seed': {
+                    type: 'number',
+                    description: 'Random seed to ensure reproducibility'
+                }
             },
             'BatchNormalization': {
-                'axis': { type: 'number' },
-                'momentum': { type: 'number', min: 0, max: 1 },
-                'epsilon': { type: 'number', min: 0 }
+                'axis': { 
+                    type: 'number',
+                    description: 'The axis that should be normalized'
+                },
+                'momentum': { 
+                    type: 'number', 
+                    min: 0, 
+                    max: 1,
+                    description: 'Momentum for the moving average'
+                },
+                'epsilon': { 
+                    type: 'number', 
+                    min: 0,
+                    description: 'Small float added to variance to avoid dividing by zero'
+                },
+                'center': {
+                    type: 'boolean',
+                    description: 'If True, add offset of beta to normalized tensor'
+                },
+                'scale': {
+                    type: 'boolean',
+                    description: 'If True, multiply by gamma'
+                }
             },
-            'Flatten': {},
+            'Flatten': {
+                'data_format': {
+                    type: 'string',
+                    values: ['channels_last', 'channels_first'],
+                    description: 'The ordering of the dimensions in the inputs'
+                }
+            },
             'Input': {
-                'shape': { type: 'tuple', required: true }
+                'shape': { 
+                    type: 'tuple', 
+                    required: true,
+                    description: 'Shape of the input tensor'
+                },
+                'batch_size': {
+                    type: 'number',
+                    min: 1,
+                    description: 'Optional static batch size (integer)'
+                },
+                'name': {
+                    type: 'string',
+                    description: 'Name of the input layer'
+                },
+                'dtype': {
+                    type: 'string',
+                    values: ['float32', 'int32', 'bool'],
+                    description: 'Datatype of the input'
+                }
+            },
+            'LSTM': {
+                'units': {
+                    type: 'number',
+                    min: 1,
+                    required: true,
+                    description: 'Dimensionality of the output space'
+                },
+                'activation': {
+                    type: 'string',
+                    values: ['tanh', 'sigmoid', 'relu', 'linear'],
+                    description: 'Activation function to use'
+                },
+                'recurrent_activation': {
+                    type: 'string',
+                    values: ['sigmoid', 'tanh', 'relu', 'linear'],
+                    description: 'Activation function to use for recurrent step'
+                },
+                'return_sequences': {
+                    type: 'boolean',
+                    description: 'Whether to return the last output or full sequence'
+                },
+                'return_state': {
+                    type: 'boolean',
+                    description: 'Whether to return the last state in addition to the output'
+                }
             }
         };
 
-        // Optimizer validation rules
-        const optimizerValidationRules: { [key: string]: { [param: string]: { type: string, values?: string[], min?: number, max?: number, required?: boolean } } } = {
+        // Optimizer validation rules with enhanced type checking
+        const optimizerValidationRules: { [key: string]: { [param: string]: ValidationRule } } = {
             'Adam': {
-                'learning_rate': { type: 'number', min: 0 },
-                'beta_1': { type: 'number', min: 0, max: 1 },
-                'beta_2': { type: 'number', min: 0, max: 1 },
-                'epsilon': { type: 'number', min: 0 }
+                'learning_rate': { 
+                    type: 'number', 
+                    min: 0,
+                    description: 'Learning rate (step size) for the optimizer'
+                },
+                'beta_1': { 
+                    type: 'number', 
+                    min: 0, 
+                    max: 1,
+                    description: 'Exponential decay rate for the 1st moment estimates'
+                },
+                'beta_2': { 
+                    type: 'number', 
+                    min: 0, 
+                    max: 1,
+                    description: 'Exponential decay rate for the 2nd moment estimates'
+                },
+                'epsilon': { 
+                    type: 'number', 
+                    min: 0,
+                    description: 'Small constant for numerical stability'
+                },
+                'amsgrad': {
+                    type: 'boolean',
+                    description: 'Whether to apply AMSGrad variant of Adam'
+                },
+                'weight_decay': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Weight decay (L2 regularization)'
+                }
             },
             'SGD': {
-                'learning_rate': { type: 'number', min: 0 },
-                'momentum': { type: 'number', min: 0 },
-                'nesterov': { type: 'boolean' }
+                'learning_rate': { 
+                    type: 'number', 
+                    min: 0,
+                    description: 'Learning rate (step size) for the optimizer'
+                },
+                'momentum': { 
+                    type: 'number', 
+                    min: 0,
+                    description: 'Accelerates gradient descent in the relevant direction'
+                },
+                'nesterov': { 
+                    type: 'boolean',
+                    description: 'Whether to apply Nesterov momentum'
+                },
+                'weight_decay': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Weight decay (L2 regularization)'
+                }
             },
             'RMSprop': {
-                'learning_rate': { type: 'number', min: 0 },
-                'rho': { type: 'number', min: 0, max: 1 },
-                'epsilon': { type: 'number', min: 0 }
+                'learning_rate': { 
+                    type: 'number', 
+                    min: 0,
+                    description: 'Learning rate (step size) for the optimizer'
+                },
+                'rho': { 
+                    type: 'number', 
+                    min: 0, 
+                    max: 1,
+                    description: 'Discounting factor for the gradient squared'
+                },
+                'epsilon': { 
+                    type: 'number', 
+                    min: 0,
+                    description: 'Small constant for numerical stability'
+                },
+                'momentum': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Momentum factor'
+                },
+                'centered': {
+                    type: 'boolean',
+                    description: 'If True, gradients are normalized by the estimated variance of the gradient'
+                },
+                'weight_decay': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Weight decay (L2 regularization)'
+                }
+            },
+            'Adagrad': {
+                'learning_rate': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Learning rate (step size) for the optimizer'
+                },
+                'initial_accumulator_value': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Starting value for the accumulators'
+                },
+                'epsilon': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Small constant for numerical stability'
+                }
+            },
+            'Adadelta': {
+                'learning_rate': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Learning rate (step size) for the optimizer'
+                },
+                'rho': {
+                    type: 'number',
+                    min: 0,
+                    max: 1,
+                    description: 'Decay rate for the moving average of squared gradients'
+                },
+                'epsilon': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Small constant for numerical stability'
+                }
+            },
+            'Adamax': {
+                'learning_rate': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Learning rate (step size) for the optimizer'
+                },
+                'beta_1': {
+                    type: 'number',
+                    min: 0,
+                    max: 1,
+                    description: 'Exponential decay rate for the 1st moment estimates'
+                },
+                'beta_2': {
+                    type: 'number',
+                    min: 0,
+                    max: 1,
+                    description: 'Exponential decay rate for the exponentially weighted infinity norm'
+                },
+                'epsilon': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Small constant for numerical stability'
+                }
+            },
+            'Nadam': {
+                'learning_rate': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Learning rate (step size) for the optimizer'
+                },
+                'beta_1': {
+                    type: 'number',
+                    min: 0,
+                    max: 1,
+                    description: 'Exponential decay rate for the 1st moment estimates'
+                },
+                'beta_2': {
+                    type: 'number',
+                    min: 0,
+                    max: 1,
+                    description: 'Exponential decay rate for the 2nd moment estimates'
+                },
+                'epsilon': {
+                    type: 'number',
+                    min: 0,
+                    description: 'Small constant for numerical stability'
+                }
             }
         };
 
@@ -419,89 +1059,38 @@ export class AILangDiagnosticProvider {
                 }
             });
             
-            // Validate parameter types and values
+            // Validate parameter types and values with enhanced type checking
             Object.entries(layer.parameters).forEach(([key, value]) => {
-                if (typeof value === 'string') {
-                    const rule = rules[key];
-                    
-                    if (!rule) {
-                        // Unknown parameter for this layer type
-                        const range = new vscode.Range(layer.line, 0, layer.line, 50);
-                        diagnostics.push({
-                            range,
-                            message: `Unknown parameter '${key}' for layer type '${layerType}'`,
-                            severity: vscode.DiagnosticSeverity.Warning,
-                            code: 'unknown-param'
-                        });
-                        return;
-                    }
-                    
-                    // Type checking
-                    if (rule.type === 'number') {
-                        if (isNaN(Number(value))) {
-                            const range = new vscode.Range(layer.line, 0, layer.line, 50);
-                            diagnostics.push({
-                                range,
-                                message: `Parameter '${key}' should be a number, got: '${value}'`,
-                                severity: vscode.DiagnosticSeverity.Error,
-                                code: 'type-error'
-                            });
-                        } else {
-                            const numValue = Number(value);
-                            // Range checking
-                            if (rule.min !== undefined && numValue < rule.min) {
-                                const range = new vscode.Range(layer.line, 0, layer.line, 50);
-                                diagnostics.push({
-                                    range,
-                                    message: `Parameter '${key}' should be at least ${rule.min}, got: ${numValue}`,
-                                    severity: vscode.DiagnosticSeverity.Error,
-                                    code: 'range-error'
-                                });
-                            }
-                            if (rule.max !== undefined && numValue > rule.max) {
-                                const range = new vscode.Range(layer.line, 0, layer.line, 50);
-                                diagnostics.push({
-                                    range,
-                                    message: `Parameter '${key}' should be at most ${rule.max}, got: ${numValue}`,
-                                    severity: vscode.DiagnosticSeverity.Error,
-                                    code: 'range-error'
-                                });
-                            }
-                        }
-                    } else if (rule.type === 'string' && rule.values) {
-                        // Enum checking
-                        if (!rule.values.includes(value as string)) {
-                            const range = new vscode.Range(layer.line, 0, layer.line, 50);
-                            diagnostics.push({
-                                range,
-                                message: `Invalid value for '${key}': '${value}'. Valid options: ${rule.values.join(', ')}`,
-                                severity: vscode.DiagnosticSeverity.Error,
-                                code: 'invalid-value'
-                            });
-                        }
-                    } else if (rule.type === 'boolean') {
-                        if (value !== 'true' && value !== 'false') {
-                            const range = new vscode.Range(layer.line, 0, layer.line, 50);
-                            diagnostics.push({
-                                range,
-                                message: `Parameter '${key}' should be a boolean (true/false), got: '${value}'`,
-                                severity: vscode.DiagnosticSeverity.Error,
-                                code: 'type-error'
-                            });
-                        }
-                    } else if (rule.type === 'tuple') {
-                        // Check tuple format (e.g., (28, 28, 1))
-                        const tupleMatch = (value as string).match(/^\(\s*\d+(?:\s*,\s*\d+)*\s*\)$/); 
-                        if (!tupleMatch) {
-                            const range = new vscode.Range(layer.line, 0, layer.line, 50);
-                            diagnostics.push({
-                                range,
-                                message: `Parameter '${key}' should be a tuple (e.g., (28, 28, 1)), got: '${value}'`,
-                                severity: vscode.DiagnosticSeverity.Error,
-                                code: 'type-error'
-                            });
-                        }
-                    }
+                const rule = rules[key];
+                
+                if (!rule) {
+                    // Unknown parameter for this layer type
+                    const range = new vscode.Range(layer.line, 0, layer.line, 50);
+                    diagnostics.push({
+                        range,
+                        message: `Unknown parameter '${key}' for layer type '${layerType}'`,
+                        severity: vscode.DiagnosticSeverity.Warning,
+                        code: 'unknown-param'
+                    });
+                    return;
+                }
+                
+                // Extract value string from parameter
+                const valueStr = typeof value === 'string' ? value : String(value);
+                
+                // Type checking with enhanced validation
+                if (rule.type === 'number') {
+                    this.validateNumberParameter(key, valueStr, rule, layer.line, diagnostics);
+                } else if (rule.type === 'string' && rule.values) {
+                    this.validateEnumParameter(key, valueStr, rule, layer.line, diagnostics);
+                } else if (rule.type === 'boolean') {
+                    this.validateBooleanParameter(key, valueStr, layer.line, diagnostics);
+                } else if (rule.type === 'tuple') {
+                    this.validateTupleParameter(key, valueStr, layer.line, diagnostics);
+                } else if (rule.type === 'object') {
+                    this.validateObjectParameter(key, valueStr, rule, layer.line, diagnostics);
+                } else if (rule.type === 'array') {
+                    this.validateArrayParameter(key, valueStr, rule, layer.line, diagnostics);
                 }
             });
         });
@@ -509,14 +1098,14 @@ export class AILangDiagnosticProvider {
         // Validate training configurations
         structure.training.forEach((training: any) => {
             if (training.type === 'compile') {
-                // Check optimizer
+                // Check optimizer with enhanced validation
                 const optimizer = training.parameters.optimizer;
                 if (optimizer) {
                     // Extract optimizer name and parameters
                     const optimizerMatch = optimizer.match(/^(\w+)\((.*)\)$/);
                     if (optimizerMatch) {
                         const optimizerName = optimizerMatch[1];
-                        const optimizerParams = optimizerMatch[2];
+                        const optimizerParamsStr = optimizerMatch[2];
                         
                         // Check if optimizer is valid
                         if (!optimizerValidationRules[optimizerName]) {
@@ -527,9 +1116,19 @@ export class AILangDiagnosticProvider {
                                 severity: vscode.DiagnosticSeverity.Warning,
                                 code: 'unknown-optimizer'
                             });
+                        } else {
+                            // Parse and validate optimizer parameters
+                            this.validateOptimizerParameters(optimizerName, optimizerParamsStr, optimizerValidationRules[optimizerName], training.line, diagnostics);
                         }
-                        
-                        // TODO: Parse and validate optimizer parameters
+                    } else {
+                        // Invalid optimizer format
+                        const range = new vscode.Range(training.line, 0, training.line, 50);
+                        diagnostics.push({
+                            range,
+                            message: `Invalid optimizer format: '${optimizer}'. Expected format: 'OptimizerName(param1=value1, param2=value2)'`,
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'invalid-optimizer-format'
+                        });
                     }
                 }
                 

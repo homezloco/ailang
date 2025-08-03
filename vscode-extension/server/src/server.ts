@@ -271,25 +271,43 @@ let workspaceFolder: string | null = null;
 
 // Configuration settings
 interface AILangSettings {
-    maxNumberOfProblems: number;
     validation: {
         enable: boolean;
         strict: boolean;
         checkNamingConventions: boolean;
         checkDeprecated: boolean;
-        checkPerformance: boolean;
-        checkSecurity: boolean;
+        maxNumberOfProblems: number;
+        maxWarningLevel: 'none' | 'info' | 'warning' | 'error';
+        ignorePatterns: string[];
     };
     format: {
         enable: boolean;
+        indentSize: number;
         insertFinalNewline: boolean;
         trimTrailingWhitespace: boolean;
     };
     lint: {
         enable: boolean;
-        maxWarningLevel: 'none' | 'info' | 'warning' | 'error';
-        ignorePatterns: string[];
+        rules: {
+            noUnusedLayers: boolean;
+            requireCompile: boolean;
+            requireFit: boolean;
+        };
     };
+    hover: {
+        enable: boolean;
+        showExamples: boolean;
+        showLinks: boolean;
+    };
+    completion: {
+        enable: boolean;
+        showDocumentation: boolean;
+    };
+    trace: {
+        server: 'off' | 'messages' | 'verbose';
+    };
+    path: string | null;
+    configPath: string | null;
     experimental: {
         enableAdvancedValidation: boolean;
         enableTypeChecking: boolean;
@@ -298,29 +316,47 @@ interface AILangSettings {
 
 // Default settings
 const defaultSettings: AILangSettings = {
-    maxNumberOfProblems: 1000,
     validation: {
         enable: true,
         strict: false,
         checkNamingConventions: true,
         checkDeprecated: true,
-        checkPerformance: true,
-        checkSecurity: true
+        maxNumberOfProblems: 100,
+        maxWarningLevel: 'warning',
+        ignorePatterns: [],
     },
     format: {
         enable: true,
+        indentSize: 2,
         insertFinalNewline: true,
-        trimTrailingWhitespace: true
+        trimTrailingWhitespace: true,
     },
     lint: {
         enable: true,
-        maxWarningLevel: 'warning',
-        ignorePatterns: []
+        rules: {
+            noUnusedLayers: true,
+            requireCompile: true,
+            requireFit: false,
+        },
     },
+    hover: {
+        enable: true,
+        showExamples: true,
+        showLinks: true,
+    },
+    completion: {
+        enable: true,
+        showDocumentation: true,
+    },
+    trace: {
+        server: 'off'
+    },
+    path: null,
+    configPath: null,
     experimental: {
         enableAdvancedValidation: false,
-        enableTypeChecking: false
-    }
+        enableTypeChecking: false,
+    },
 };
 
 // Global settings with deep copy of defaults
@@ -695,8 +731,9 @@ const validateDocument = async (textDocument: TextDocument): Promise<void> => {
             validator.addSyntaxValidation(text, diagnostics);
             
             // Limit the number of diagnostics
-            if (diagnostics.length > settings.maxNumberOfProblems) {
-                diagnostics.length = settings.maxNumberOfProblems;
+            const maxProblems = settings.validation?.maxNumberOfProblems || 100;
+            if (diagnostics.length > maxProblems) {
+                diagnostics.length = maxProblems;
             }
             
         } catch (error) {

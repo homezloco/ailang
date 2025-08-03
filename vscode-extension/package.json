@@ -62,20 +62,150 @@
       "type": "object",
       "title": "AILang Configuration",
       "properties": {
-        "ailang.validation.enable": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable/disable AILang validation"
+        "ailang.validation": {
+          "type": "object",
+          "title": "Validation",
+          "description": "AILang validation settings",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable/disable AILang validation"
+            },
+            "strict": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable strict validation mode"
+            },
+            "checkNamingConventions": {
+              "type": "boolean",
+              "default": true,
+              "description": "Check for naming convention violations"
+            },
+            "checkDeprecated": {
+              "type": "boolean",
+              "default": true,
+              "description": "Check for usage of deprecated features"
+            },
+            "maxNumberOfProblems": {
+              "type": "number",
+              "default": 100,
+              "description": "Maximum number of problems to report"
+            },
+            "maxWarningLevel": {
+              "type": "string",
+              "enum": ["none", "info", "warning", "error"],
+              "default": "warning",
+              "description": "Maximum level of warnings to report"
+            },
+            "ignorePatterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [],
+              "description": "Patterns to ignore during validation"
+            }
+          }
         },
-        "ailang.format.enable": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable/disable AILang formatting"
+        "ailang.format": {
+          "type": "object",
+          "title": "Formatting",
+          "description": "AILang formatting settings",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable/disable AILang formatting"
+            },
+            "indentSize": {
+              "type": "number",
+              "default": 2,
+              "description": "Number of spaces for indentation"
+            },
+            "insertFinalNewline": {
+              "type": "boolean",
+              "default": true,
+              "description": "Insert a final newline at the end of the file"
+            },
+            "trimTrailingWhitespace": {
+              "type": "boolean",
+              "default": true,
+              "description": "Trim trailing whitespace"
+            }
+          }
         },
-        "ailang.lint.enable": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable/disable AILang linting"
+        "ailang.lint": {
+          "type": "object",
+          "title": "Linting",
+          "description": "AILang linting settings",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable/disable AILang linting"
+            },
+            "rules": {
+              "type": "object",
+              "description": "Specific linting rules configuration",
+              "properties": {
+                "noUnusedLayers": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Flag unused layers in the model"
+                },
+                "requireCompile": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Require compile statement in model"
+                },
+                "requireFit": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Require fit statement in model"
+                }
+              }
+            }
+          }
+        },
+        "ailang.hover": {
+          "type": "object",
+          "title": "Hover",
+          "description": "AILang hover settings",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable/disable hover documentation"
+            },
+            "showExamples": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show code examples in hover documentation"
+            },
+            "showLinks": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show documentation links in hover"
+            }
+          }
+        },
+        "ailang.completion": {
+          "type": "object",
+          "title": "Completion",
+          "description": "AILang completion settings",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable/disable code completion"
+            },
+            "showDocumentation": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show documentation in completion items"
+            }
+          }
         },
         "ailang.trace.server": {
           "type": "string",
@@ -102,6 +232,23 @@
           ],
           "default": null,
           "description": "Path to the AILang configuration file"
+        },
+        "ailang.experimental": {
+          "type": "object",
+          "title": "Experimental Features",
+          "description": "Experimental AILang features",
+          "properties": {
+            "enableAdvancedValidation": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable advanced validation features"
+            },
+            "enableTypeChecking": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable experimental type checking"
+            }
+          }
         }
       }
     },
