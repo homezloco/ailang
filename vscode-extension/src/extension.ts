@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { workspace, ExtensionContext, commands, window, WorkspaceConfiguration, Progress, Uri } from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, ErrorAction, CloseAction } from 'vscode-languageclient/node';
 import { registerFormatter } from './formatter';
 import { registerCompletionProvider } from './completionProvider';
 import { registerHoverProvider } from './hoverProvider';
@@ -177,45 +177,85 @@ async function formatCurrentFile() {
 }
 
 function startLanguageServer(context: ExtensionContext, config: WorkspaceConfiguration) {
-    // The server is implemented in Node.js
-    const serverModule = context.asAbsolutePath(
-        path.join('server', 'out', 'server.js')
-    );
-    
-    // If the extension is launched in debug mode then the debug server options are used
-    // Otherwise the run options are used
-    const serverOptions: ServerOptions = {
-        run: { 
-            module: serverModule, 
-            transport: TransportKind.ipc 
-        },
-        debug: {
-            module: serverModule,
-            transport: TransportKind.ipc,
-            options: {
-                execArgv: ['--nolazy', '--inspect=6009']
+    try {
+        console.log('Starting language server setup...');
+        
+        // The server is implemented in Node.js
+        const serverModule = context.asAbsolutePath(
+            path.join('server', 'out', 'server.js')
+        );
+        console.log(`Server module path: ${serverModule}`);
+        
+        // Check if the server module exists
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(serverModule)) {
+                console.log('Server module file exists');
+            } else {
+                console.error(`Server module file does not exist: ${serverModule}`);
+                window.showErrorMessage(`AILang server module not found at: ${serverModule}`);
+                return;
             }
+        } catch (fsError) {
+            console.error('Error checking server module file:', fsError);
         }
-    };
-    
-    // Options to control the language client
-    const clientOptions: LanguageClientOptions = {
-        // Register the server for AILang documents
-        documentSelector: [{ scheme: 'file', language: 'ailang' }],
-        synchronize: {
-            // Notify the server about file changes to .ail files contained in the workspace
-            fileEvents: workspace.createFileSystemWatcher('**/*.ail')
-        }
-    };
-    
-    // Create the language client and start the client
-    client = new LanguageClient(
-        'ailangLanguageServer',
-        'AILang Language Server',
-        serverOptions,
-        clientOptions
-    );
-    
-    // Start the client and the server
-    client.start();
+        
+        // If the extension is launched in debug mode then the debug server options are used
+        // Otherwise the run options are used
+        const serverOptions: ServerOptions = {
+            run: { 
+                module: serverModule, 
+                transport: TransportKind.ipc 
+            },
+            debug: {
+                module: serverModule,
+                transport: TransportKind.ipc,
+                options: {
+                    execArgv: ['--nolazy', '--inspect=6009']
+                }
+            }
+        };
+        
+        // Options to control the language client
+        const clientOptions: LanguageClientOptions = {
+            // Register the server for AILang documents
+            documentSelector: [{ scheme: 'file', language: 'ailang' }],
+            synchronize: {
+                // Notify the server about file changes to .ail files contained in the workspace
+                fileEvents: workspace.createFileSystemWatcher('**/*.ail')
+            },
+            // Add error handling
+            errorHandler: {
+                error: (error, message, count) => {
+                    console.error(`Language client error: ${error} (message: ${message}, count: ${count})`);
+                    return { action: ErrorAction.Continue };
+                },
+                closed: () => {
+                    console.log('Language client connection closed');
+                    return { action: CloseAction.Restart };
+                }
+            }
+        };
+        
+        console.log('Creating language client...');
+        // Create the language client and start the client
+        client = new LanguageClient(
+            'ailangLanguageServer',
+            'AILang Language Server',
+            serverOptions,
+            clientOptions
+        );
+        
+        console.log('Starting language client...');
+        // Start the client and the server
+        client.start().catch(error => {
+            console.error('Failed to start language client:', error);
+            window.showErrorMessage(`Failed to start AILang language server: ${error.message}`);
+        });
+        
+        console.log('Language server setup completed');
+    } catch (error) {
+        console.error('Error in startLanguageServer:', error);
+        window.showErrorMessage(`Error starting AILang language server: ${error}`);
+    }
 }
