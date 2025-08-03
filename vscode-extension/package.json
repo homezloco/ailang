@@ -58,6 +58,10 @@
         "title": "AILang: Format File"
       },
       {
+        "command": "ailang.setLanguageId",
+        "title": "AILang: Set Language ID"
+      },
+      {
         "command": "ailang.addModelTemplate",
         "title": "AILang: Add Model Template"
       },
@@ -72,6 +76,12 @@
       {
         "command": "ailang.convertToSequentialModel",
         "title": "AILang: Convert to Sequential Model"
+      }
+    ],
+    "formatters": [
+      {
+        "language": "ailang",
+        "extensions": [".ail"]
       }
     ],
     "configuration": {

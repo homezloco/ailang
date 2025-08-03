@@ -164,28 +164,36 @@ export function registerFormatter(context: vscode.ExtensionContext) {
         const formatter = new AILangFormatter();
         console.log('AILang formatter instance created successfully');
         
+        // Register document formatting provider for AILang language ID
         console.log('Registering document formatting provider for AILang...');
-        const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider('ailang', formatter);
+        const documentSelector = [
+            { scheme: 'file', language: 'ailang' },
+            { scheme: 'file', pattern: '**/*.ail' }
+        ];
+        
+        // Register document formatting provider
+        const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider(
+            documentSelector, 
+            formatter
+        );
         context.subscriptions.push(formattingProvider);
-        console.log('Document formatting provider registered successfully');
         
-        console.log('Registering document range formatting provider for AILang...');
-        const rangeFormattingProvider = vscode.languages.registerDocumentRangeFormattingEditProvider('ailang', formatter);
+        // Register range formatting provider
+        const rangeFormattingProvider = vscode.languages.registerDocumentRangeFormattingEditProvider(
+            documentSelector, 
+            formatter
+        );
         context.subscriptions.push(rangeFormattingProvider);
-        console.log('Document range formatting provider registered successfully');
         
-        // Register a command to manually trigger formatting
-        console.log('Registering format command...');
-        const formatCommand = vscode.commands.registerCommand('ailang.format', () => {
-            const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'ailang') {
-                vscode.commands.executeCommand('editor.action.formatDocument');
-            } else {
-                vscode.window.showWarningMessage('No active AILang document found');
-            }
+        console.log('Document formatting providers registered successfully');
+        
+        // Log registration details for debugging
+        console.log('Formatter registered with document selectors:', JSON.stringify(documentSelector));
+        
+        // Log active text editors and their language IDs
+        vscode.window.visibleTextEditors.forEach(editor => {
+            console.log(`Active editor: ${editor.document.fileName}, Language ID: ${editor.document.languageId}`);
         });
-        context.subscriptions.push(formatCommand);
-        console.log('Format command registered successfully');
         
         console.log('All formatter registrations completed successfully');
     } catch (error) {

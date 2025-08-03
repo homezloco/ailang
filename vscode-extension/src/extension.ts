@@ -41,6 +41,29 @@ export async function activate(context: ExtensionContext) {
         const validateCommand = commands.registerCommand('ailang.validateFile', validateCurrentFile);
         const formatCommand = commands.registerCommand('ailang.formatFile', formatCurrentFile);
         
+        // Register a command to set the language ID for the current file
+        const setLanguageCommand = commands.registerCommand('ailang.setLanguageId', async () => {
+            try {
+                const editor = window.activeTextEditor;
+                if (!editor) {
+                    window.showWarningMessage('No active editor found');
+                    return;
+                }
+                
+                const document = editor.document;
+                console.log(`Current document: ${document.fileName}, Language ID: ${document.languageId}`);
+                
+                // Set the language ID to ailang
+                await commands.executeCommand('setEditorLanguage', { languageId: 'ailang' });
+                
+                window.showInformationMessage(`Language ID set to AILang for ${path.basename(document.fileName)}`);
+                console.log(`Language ID set to AILang for ${document.fileName}`);
+            } catch (error) {
+                console.error('Error setting language ID:', error);
+                window.showErrorMessage(`Failed to set language ID: ${error}`);
+            }
+        });
+        
         // Register providers with error handling
         try {
             console.log('Registering hover provider...');
@@ -55,7 +78,8 @@ export async function activate(context: ExtensionContext) {
         context.subscriptions.push(
             welcomeCommand,
             validateCommand, 
-            formatCommand
+            formatCommand,
+            setLanguageCommand
         );
         
         // Start the language server
