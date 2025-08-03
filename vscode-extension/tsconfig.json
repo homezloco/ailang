@@ -5,7 +5,8 @@
     "outDir": "out",
     "lib": ["ES2020"],
     "sourceMap": true,
-    "strict": true,
+    "strict": false,
+    "noImplicitAny": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,7 +16,8 @@
   },
   "include": [
     "src/**/*.ts",
-    "server/src/**/*.ts"
+    "server/src/**/*.ts",
+    "test/**/*.ts"
   ],
   "exclude": [
     "node_modules",

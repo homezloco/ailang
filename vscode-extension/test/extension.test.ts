@@ -1,3 +1,7 @@
+/// <reference types="node" />
+/// <reference types="mocha" />
+/// <reference types="assert" />
+
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -6,14 +10,6 @@ import { AILangDiagnosticProvider } from '../src/diagnosticProvider';
 import { AILangCompletionItemProvider } from '../src/completionProvider';
 import { AILangHoverProvider } from '../src/hoverProvider';
 import { suite, test, after } from 'mocha';
-
-// Ensure Node.js types are available
-// @ts-ignore
-if (typeof process === 'undefined') {
-    // This is just to make TypeScript happy in VS Code environment
-    // In the actual extension host, process will be defined
-    const process = { cwd: () => '.' };
-}
 
 // Helper function to create a test document with AILang content
 async function createTestDocument(content: string): Promise<vscode.TextDocument> {
@@ -143,7 +139,11 @@ suite('AILang Extension Test Suite', () => {
             if (uri instanceof vscode.Uri && diags !== undefined) {
                 diagnostics = diags || [];
             }
-            return originalSet.apply(diagnosticCollection, [uri, diags]);
+            if (diags !== undefined) {
+                return originalSet.apply(diagnosticCollection, [uri, diags]);
+            } else {
+                return originalSet.apply(diagnosticCollection, [uri as [vscode.Uri, vscode.Diagnostic[] | undefined][]]);
+            }
         };
         
         // Set the diagnostic collection on the provider
@@ -183,7 +183,11 @@ suite('AILang Extension Test Suite', () => {
             if (uri instanceof vscode.Uri && diags !== undefined) {
                 diagnostics = diags || [];
             }
-            return originalSet.apply(diagnosticCollection, [uri, diags]);
+            if (diags !== undefined) {
+                return originalSet.apply(diagnosticCollection, [uri, diags]);
+            } else {
+                return originalSet.apply(diagnosticCollection, [uri as [vscode.Uri, vscode.Diagnostic[] | undefined][]]);
+            }
         };
         
         // Set the diagnostic collection on the provider
@@ -256,7 +260,11 @@ suite('AILang Extension Test Suite', () => {
             if (uri instanceof vscode.Uri && diags !== undefined) {
                 diagnostics = diags || [];
             }
-            return originalSet.apply(diagnosticCollection, [uri, diags]);
+            if (diags !== undefined) {
+                return originalSet.apply(diagnosticCollection, [uri, diags]);
+            } else {
+                return originalSet.apply(diagnosticCollection, [uri as [vscode.Uri, vscode.Diagnostic[] | undefined][]]);
+            }
         };
         
         // Set the diagnostic collection on the provider
@@ -292,7 +300,11 @@ suite('AILang Extension Test Suite', () => {
             if (uri instanceof vscode.Uri && diags !== undefined) {
                 diagnostics = diags || [];
             }
-            return originalSet.apply(diagnosticCollection, [uri, diags]);
+            if (diags !== undefined) {
+                return originalSet.apply(diagnosticCollection, [uri, diags]);
+            } else {
+                return originalSet.apply(diagnosticCollection, [uri as [vscode.Uri, vscode.Diagnostic[] | undefined][]]);
+            }
         };
         
         // Set the diagnostic collection on the provider
@@ -328,7 +340,11 @@ suite('AILang Extension Test Suite', () => {
             if (uri instanceof vscode.Uri && diags !== undefined) {
                 diagnostics = diags || [];
             }
-            return originalSet.apply(diagnosticCollection, [uri, diags]);
+            if (diags !== undefined) {
+                return originalSet.apply(diagnosticCollection, [uri, diags]);
+            } else {
+                return originalSet.apply(diagnosticCollection, [uri as [vscode.Uri, vscode.Diagnostic[] | undefined][]]);
+            }
         };
         
         // Set the diagnostic collection on the provider
@@ -390,5 +406,4 @@ suite('AILang Extension Test Suite', () => {
             }
         }
     });
-});
 });
