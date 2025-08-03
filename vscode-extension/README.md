@@ -1,13 +1,17 @@
 # AILang Language Support for VS Code
 
-This extension provides rich language support for AILang files in VS Code, including syntax highlighting, code completion, validation, and more.
+This extension provides rich language support for AILang files in VS Code, including syntax highlighting, code completion, validation, diagnostics, and more.
 
 ## Features
 
 - **Syntax Highlighting**: Full support for AILang syntax with color coding for different language elements.
 - **Code Completion**: Intelligent code suggestions for AILang keywords, layer types, and parameters.
-- **Validation**: Real-time validation of AILang code with helpful error messages and warnings.
-- **Hover Information**: Quick documentation on hover for AILang elements.
+- **Diagnostics**: Real-time validation of AILang code with helpful error messages and warnings.
+  - Missing parameter detection
+  - Type checking for model parameters
+  - Invalid value detection
+  - Unclosed model detection
+- **Hover Information**: Quick documentation on hover for AILang elements and parameters.
 - **Formatting**: Format AILang code with consistent indentation and style.
 - **Snippets**: Handy code snippets for common AILang patterns.
 
@@ -76,6 +80,25 @@ To build the extension, run:
 ```bash
 npm run compile
 ```
+
+### Testing
+
+The extension includes comprehensive tests for all major features:
+
+- Extension activation tests
+- Syntax highlighting tests
+- Completion provider tests
+- Diagnostic provider tests (missing parameters, type errors, invalid values, unclosed models)
+- Hover provider tests
+- File handling tests
+
+To run the tests:
+
+```bash
+npm test
+```
+
+The test suite uses VS Code's extension testing API to validate functionality in a real VS Code environment.
 
 ### Package
 
