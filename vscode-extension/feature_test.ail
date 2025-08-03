@@ -1,0 +1,43 @@
+// AILang Feature Test File
+// Tests hover, formatting, and code actions
+
+// This model has formatting issues to test formatter
+model poorly_formatted_model{
+Dense(units=64,activation='relu',input_shape=(784,))
+  Dropout(rate=0.3)
+    Dense(units=32,activation='relu')
+Dense(units=10,activation='softmax')
+}
+
+// This model has a missing compile statement to test code actions
+model needs_compile {
+  Input(shape=(28, 28, 1))
+  Conv2D(filters=32, kernel_size=(3, 3), activation='relu')
+  MaxPooling2D(pool_size=(2, 2))
+  Flatten()
+  Dense(units=128, activation='relu')
+  // Missing output layer - should trigger code action
+}
+
+// This is an empty model to test the "Add model template" code action
+// model empty_model {
+// }
+
+// Test hover documentation for various components
+optimizer = 'adam'  // Hover over 'adam' should show optimizer documentation
+loss = 'categorical_crossentropy'  // Hover should show loss documentation
+activation = 'relu'  // Hover should show activation documentation
+
+// Test hover for layer parameters
+dropout_rate = 0.5  // Hover over 'dropout_rate' should show parameter info
+dense_units = 128   // Hover over 'dense_units' should show parameter info
+
+// Test formatting with long lines
+very_long_parameter_list = ['accuracy', 'precision', 'recall', 'f1_score', 'auc', 'true_positives', 'false_positives', 'true_negatives', 'false_negatives']
+
+// Test indentation errors for code actions
+model indentation_errors {
+Dense(units=64, activation='relu')
+    Dropout(rate=0.2)
+  Dense(units=10, activation='softmax')
+}

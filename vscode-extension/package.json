@@ -56,6 +56,22 @@
       {
         "command": "ailang.formatFile",
         "title": "AILang: Format File"
+      },
+      {
+        "command": "ailang.addModelTemplate",
+        "title": "AILang: Add Model Template"
+      },
+      {
+        "command": "ailang.addLayer",
+        "title": "AILang: Add Layer"
+      },
+      {
+        "command": "ailang.addCompileStatement",
+        "title": "AILang: Add Compile Statement"
+      },
+      {
+        "command": "ailang.convertToSequentialModel",
+        "title": "AILang: Convert to Sequential Model"
       }
     ],
     "configuration": {
