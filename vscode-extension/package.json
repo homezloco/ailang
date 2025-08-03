@@ -127,6 +127,7 @@
     "pretest": "npm run compile",
     "lint": "eslint src --ext ts",
     "test": "npm run compile && node ./out/test/runTest.js",
+    "test:simple": "npm run compile && mocha out/test/simple-tests.js",
     "package": "vsce package"
   },
   "devDependencies": {
