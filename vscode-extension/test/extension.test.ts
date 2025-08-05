@@ -1062,7 +1062,7 @@ suite('AILang Extension Test Suite', () => {
         // Test hover on empty line
         const emptyDoc = await createTestDocument('\n\n');
         const emptyPos = new vscode.Position(1, 0);
-        const emptyHover = await provider.provideHover(emptyDoc, emptyPos);
+        const emptyHover = await provider.provideHover(emptyDoc, emptyPos, new vscode.CancellationTokenSource().token);
         
         // Should not crash and should return undefined or null
         assert.ok(emptyHover === undefined || emptyHover === null, 'Hover on empty line should return undefined or null');
@@ -1070,7 +1070,7 @@ suite('AILang Extension Test Suite', () => {
         // Test hover on comment
         const commentDoc = await createTestDocument('# This is a comment\nmodel Test {}');
         const commentPos = new vscode.Position(0, 5);
-        const commentHover = await provider.provideHover(commentDoc, commentPos);
+        const commentHover = await provider.provideHover(commentDoc, commentPos, new vscode.CancellationTokenSource().token);
         
         // Should not provide hover for comments
         assert.ok(commentHover === undefined || commentHover === null, 'Should not provide hover for comments');

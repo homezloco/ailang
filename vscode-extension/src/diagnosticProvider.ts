@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getSettingsManager } from './settingsManager';
 
 export interface AILangError {
     range: vscode.Range;
@@ -48,9 +49,22 @@ export class AILangDiagnosticProvider {
     
     constructor() {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection('ailang');
+        // Initialize validation delay from settings
+        const settingsManager = getSettingsManager();
+        this.validationDelay = settingsManager.debounceDelay;
     }
 
     public async validateDocument(document: vscode.TextDocument): Promise<void> {
+        // Get settings manager
+        const settingsManager = getSettingsManager();
+        
+        // Check if validation is enabled
+        if (!settingsManager.validationEnabled) {
+            // Clear any existing diagnostics if validation is disabled
+            this.diagnosticCollection.set(document.uri, []);
+            return;
+        }
+        
         // Clear any existing timer
         if (this.validationDelayTimer) {
             clearTimeout(this.validationDelayTimer);
@@ -63,12 +77,25 @@ export class AILangDiagnosticProvider {
     }
 
     private async performValidation(document: vscode.TextDocument): Promise<void> {
+        const settingsManager = getSettingsManager();
         const documentKey = document.uri.toString();
         const cachedData = this.documentCache.get(documentKey);
 
         // Check if we can use cached results
-        if (cachedData && cachedData.version === document.version) {
+        if (settingsManager.enableCaching && cachedData && cachedData.version === document.version) {
             this.diagnosticCollection.set(document.uri, cachedData.diagnostics);
+            return;
+        }
+
+        // Check file size limit
+        if (document.getText().length > settingsManager.maxFileSize) {
+            const diagnostics: vscode.Diagnostic[] = [];
+            diagnostics.push(new vscode.Diagnostic(
+                new vscode.Range(0, 0, 0, 1),
+                `File exceeds maximum size limit (${settingsManager.maxFileSize} characters). Validation skipped.`,
+                vscode.DiagnosticSeverity.Information
+            ));
+            this.diagnosticCollection.set(document.uri, diagnostics);
             return;
         }
 
@@ -84,12 +111,24 @@ export class AILangDiagnosticProvider {
         // Run all validations in a single pass where possible
         this.validateAll(lines, modelStructure, diagnostics);
 
-        // Cache the results
-        this.documentCache.set(documentKey, {
-            version: document.version,
-            structure: modelStructure,
-            diagnostics: diagnostics
-        });
+        // Limit the number of problems reported
+        if (diagnostics.length > settingsManager.maxNumberOfProblems) {
+            diagnostics.length = settingsManager.maxNumberOfProblems;
+            diagnostics.push(new vscode.Diagnostic(
+                new vscode.Range(0, 0, 0, 1),
+                `Only showing first ${settingsManager.maxNumberOfProblems} problems. More issues may exist.`,
+                vscode.DiagnosticSeverity.Information
+            ));
+        }
+
+        // Cache the results if caching is enabled
+        if (settingsManager.enableCaching) {
+            this.documentCache.set(documentKey, {
+                version: document.version,
+                structure: modelStructure,
+                diagnostics: diagnostics
+            });
+        }
 
         this.diagnosticCollection.set(document.uri, diagnostics);
         console.timeEnd('AILang validation');
@@ -242,93 +281,84 @@ export class AILangDiagnosticProvider {
     }
 
     private validateAll(lines: string[], structure: ModelStructure, diagnostics: vscode.Diagnostic[]): void {
-        // Combine all validations into a single pass where possible
+        const settingsManager = getSettingsManager();
         
-        // Pre-compile regular expressions
-        const modelRegex = /^model\s+(\w+)\s*\{/;
-        const layerRegex = /^(\w+)\s*\(?/;
-        const braceRegex = /[\{\}]/g;
+        // Skip validation if disabled
+        if (!settingsManager.validationEnabled) {
+            return;
+        }
         
-        // Track model structure for validation
-        let inModel = false;
-        let braceCount = 0;
-        let hasLayers = false;
-        let hasTrain = false;
-        
-        // Validate each line
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            // Check model syntax
-            const modelMatch = line.match(modelRegex);
-            if (modelMatch) {
-                inModel = true;
-                braceCount = 1;
-                hasLayers = false;
-                hasTrain = false;
-                continue;
-            }
-            
-            // Track braces
-            if (inModel) {
-                const braces = line.match(braceRegex);
-                if (braces) {
-                    for (const brace of braces) {
-                        if (brace === '{') braceCount++;
-                        else if (brace === '}') braceCount--;
-                    }
-                    
-                    if (braceCount === 0) {
-                        // End of model, check if it has required sections
-                        if (!hasLayers) {
-                            diagnostics.push(new vscode.Diagnostic(
-                                new vscode.Range(i, 0, i, line.length),
-                                "Model must have a 'layers' section",
-                                vscode.DiagnosticSeverity.Error
-                            ));
-                        }
-                        
-                        if (!hasTrain) {
-                            diagnostics.push(new vscode.Diagnostic(
-                                new vscode.Range(i, 0, i, line.length),
-                                "Model should have a 'train' section",
-                                vscode.DiagnosticSeverity.Warning
-                            ));
-                        }
-                        
-                        inModel = false;
-                    }
+        // Check for ignored patterns
+        const ignorePatterns = settingsManager.ignorePatterns;
+        const documentText = lines.join('\n');
+        for (const pattern of ignorePatterns) {
+            try {
+                const regex = new RegExp(pattern);
+                if (regex.test(documentText)) {
+                    // Skip validation for this file
+                    return;
                 }
-                
-                // Check for layers and train sections
-                if (line === 'layers:') {
-                    hasLayers = true;
-                } else if (line === 'train:') {
-                    hasTrain = true;
-                }
+            } catch (error) {
+                console.error(`Invalid ignore pattern regex: ${pattern}`, error);
             }
-            
-            // Check for syntax errors
-            if (line.includes('(') && !line.includes(')')) {
+        }
+        
+        // Run specific validations
+        this.validateModelStructure(structure, diagnostics);
+        
+        // Only run advanced validations if enabled
+        if (settingsManager.enableAdvancedValidation) {
+            this.validateLayerParameters(structure, diagnostics);
+            this.validateTrainingConfiguration(structure, diagnostics);
+        } else {
+            // Run basic parameter validation only
+            this.validateBasicParameters(structure, diagnostics);
+        }
+    }
+    
+    // New method for basic parameter validation
+    private validateBasicParameters(structure: ModelStructure, diagnostics: vscode.Diagnostic[]): void {
+        const settingsManager = getSettingsManager();
+        
+        // Check for missing required parameters in layers
+        structure.layers.forEach(layer => {
+            if (!layer.parameters.units && ['dense', 'lstm', 'gru'].includes(layer.type.toLowerCase())) {
+                const range = new vscode.Range(layer.line, 0, layer.line, 50);
                 diagnostics.push(new vscode.Diagnostic(
-                    new vscode.Range(i, 0, i, line.length),
-                    "Missing closing parenthesis",
+                    range,
+                    `Layer '${layer.type}' requires 'units' parameter`,
                     vscode.DiagnosticSeverity.Error
                 ));
             }
-            
-            // Add more inline validations as needed
-        }
+        });
         
-        // Perform specific validations that require the full structure
-        this.validateModelStructure(structure, diagnostics);
-        this.validateLayerParameters(structure, diagnostics);
-        this.validateTrainingConfiguration(structure, diagnostics);
+        // Check for missing required parameters in training
+        structure.training.forEach(training => {
+            if (training.type === 'compile' && !training.parameters.optimizer) {
+                const range = new vscode.Range(training.line, 0, training.line, 50);
+                diagnostics.push(new vscode.Diagnostic(
+                    range,
+                    `Compile requires 'optimizer' parameter`,
+                    vscode.DiagnosticSeverity.Error
+                ));
+            }
+        });
     }
 
     private validateModelStructure(structure: ModelStructure, diagnostics: vscode.Diagnostic[]): void {
-        // Validate model structure
+        const settingsManager = getSettingsManager();
+        
+        // Check if models are defined
+        if (structure.models.length === 0) {
+            diagnostics.push(new vscode.Diagnostic(
+                new vscode.Range(0, 0, 0, 1),
+                'No model defined in the file',
+                settingsManager.validationStrict ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning
+            ));
+            return;
+        }
+        
+        // Check if model has layers
         structure.models.forEach(model => {
             // Check if model has layers
             if (model.layers.length === 0) {
@@ -354,6 +384,8 @@ export class AILangDiagnosticProvider {
     }
 
     private validateLayerParameters(structure: ModelStructure, diagnostics: vscode.Diagnostic[]): void {
+        const settingsManager = getSettingsManager();
+        
         // Define required parameters for common layer types
         const requiredParams: { [key: string]: string[] } = {
             'Dense': ['units'],
@@ -438,6 +470,8 @@ export class AILangDiagnosticProvider {
     }
 
     private validateTrainingConfiguration(structure: ModelStructure, diagnostics: vscode.Diagnostic[]): void {
+        const settingsManager = getSettingsManager();
+        
         // Valid loss functions
         const validLossFunctions = [
             'binary_crossentropy', 'categorical_crossentropy', 'sparse_categorical_crossentropy',
@@ -533,13 +567,7 @@ export class AILangDiagnosticProvider {
 
 export function registerDiagnosticProvider(context: vscode.ExtensionContext): AILangDiagnosticProvider {
     const provider = new AILangDiagnosticProvider();
-    
-    // Get configuration
-    const config = vscode.workspace.getConfiguration('ailang');
-    const validationDelay = config.get<number>('validation.delay') || 500;
-    
-    // Update validation delay from configuration
-    (provider as any).validationDelay = validationDelay;
+    const settingsManager = getSettingsManager();
     
     // Register document change listeners with debouncing
     const disposable = vscode.workspace.onDidChangeTextDocument(event => {
@@ -557,10 +585,16 @@ export function registerDiagnosticProvider(context: vscode.ExtensionContext): AI
 
     // Listen for configuration changes
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('ailang.validation.delay')) {
-            const newConfig = vscode.workspace.getConfiguration('ailang');
-            const newDelay = newConfig.get<number>('validation.delay') || 500;
-            (provider as any).validationDelay = newDelay;
+        if (e.affectsConfiguration('ailang')) {
+            // Update validation delay from settings
+            (provider as any).validationDelay = settingsManager.debounceDelay;
+            
+            // Re-validate all open documents
+            vscode.workspace.textDocuments.forEach(document => {
+                if (document.languageId === 'ailang') {
+                    provider.validateDocument(document);
+                }
+            });
         }
     }));
 

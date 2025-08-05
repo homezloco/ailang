@@ -1,20 +1,20 @@
 import * as vscode from 'vscode';
 import { TextDocument, Range, TextEdit, Position } from 'vscode';
+import { getSettingsManager } from './settingsManager';
 
 export class AILangFormatter implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
     private indentSize: number = 2;
     private maxLineLength: number = 100;
     private insertFinalNewline: boolean = true;
     private trimTrailingWhitespace: boolean = true;
-    private config: vscode.WorkspaceConfiguration;
     
     constructor() {
-        // Initialize with configuration
+        // Initialize with configuration from settings manager
         this.updateConfiguration();
         
         // Listen for configuration changes
         vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('ailang.format')) {
+            if (e.affectsConfiguration('ailang')) {
                 this.updateConfiguration();
                 console.log('Formatter configuration updated');
             }
@@ -22,26 +22,25 @@ export class AILangFormatter implements vscode.DocumentFormattingEditProvider, v
     }
     
     private updateConfiguration(): void {
-        this.config = vscode.workspace.getConfiguration('ailang');
-        const formatConfig = this.config.get<{
-            enable: boolean;
-            indentSize: number;
-            insertFinalNewline: boolean;
-            trimTrailingWhitespace: boolean;
-        }>('format', {
-            enable: true,
-            indentSize: 2,
-            insertFinalNewline: true,
-            trimTrailingWhitespace: true
-        });
+        const settingsManager = getSettingsManager();
         
-        this.indentSize = formatConfig.indentSize;
-        this.insertFinalNewline = formatConfig.insertFinalNewline;
-        this.trimTrailingWhitespace = formatConfig.trimTrailingWhitespace;
+        this.indentSize = settingsManager.indentSize;
+        this.insertFinalNewline = settingsManager.insertFinalNewline;
+        this.trimTrailingWhitespace = settingsManager.trimTrailingWhitespace;
+        
+        console.log(`Formatter settings updated: indentSize=${this.indentSize}, insertFinalNewline=${this.insertFinalNewline}, trimTrailingWhitespace=${this.trimTrailingWhitespace}`);
     }
 
     public provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
         console.log(`Formatting document: ${document.fileName}, Language ID: ${document.languageId}`);
+        
+        // Check if formatting is enabled
+        const settingsManager = getSettingsManager();
+        if (!settingsManager.formattingEnabled) {
+            console.log('Formatting disabled by configuration');
+            return [];
+        }
+        
         // Format the document even if language ID is not 'ailang' but has .ail extension
         if (document.fileName.endsWith('.ail') || document.languageId === 'ailang') {
             return this.formatDocument(document);
@@ -51,13 +50,20 @@ export class AILangFormatter implements vscode.DocumentFormattingEditProvider, v
     }
 
     public provideDocumentRangeFormattingEdits(document: TextDocument, range: Range): TextEdit[] {
+        // Check if formatting is enabled
+        const settingsManager = getSettingsManager();
+        if (!settingsManager.formattingEnabled) {
+            console.log('Formatting disabled by configuration');
+            return [];
+        }
+        
         return this.formatDocument(document, range);
     }
 
     private formatDocument(document: TextDocument, range?: Range): TextEdit[] {
-        // Check if formatting is enabled in settings
-        const formatConfig = this.config.get<{ enable: boolean }>('format', { enable: true });
-        if (!formatConfig.enable) {
+        // Check if formatting is enabled
+        const settingsManager = getSettingsManager();
+        if (!settingsManager.formattingEnabled) {
             console.log('Formatting disabled by configuration');
             return [];
         }
@@ -105,76 +111,90 @@ export class AILangFormatter implements vscode.DocumentFormattingEditProvider, v
                 continue;
             }
 
-            // Handle block closing
-            if (line.startsWith('}')) {
+            if (line.trim() === '}') {
                 indentLevel = Math.max(0, indentLevel - 1);
-                formattedLines.push(' '.repeat(this.indentSize * indentLevel) + line);
-                inBlock = false;
+                formattedLines.push(' '.repeat(this.indentSize * indentLevel) + '}');
                 continue;
             }
 
-            // Format regular lines
-            if (inBlock) {
-                line = ' '.repeat(this.indentSize * indentLevel) + line;
+            // Handle indentation
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) {
+                // Comments keep their indentation
+                formattedLines.push(' '.repeat(this.indentSize * indentLevel) + trimmedLine);
+            } else if (trimmedLine.endsWith(':')) {
+                // Section headers
+                formattedLines.push(' '.repeat(this.indentSize * indentLevel) + trimmedLine);
+            } else {
+                // Check if the line is too long and needs to be broken
+                if (trimmedLine.length + this.indentSize * indentLevel > this.maxLineLength) {
+                    const brokenLine = this.breakLongLine(trimmedLine, indentLevel);
+                    formattedLines.push(brokenLine);
+                } else {
+                    formattedLines.push(' '.repeat(this.indentSize * indentLevel) + trimmedLine);
+                }
             }
-            
-            // Handle line length
-            if (line.length > this.maxLineLength) {
-                line = this.breakLongLine(line, indentLevel);
-            }
-
-            formattedLines.push(line);
         }
-        
-        // Add final newline if enabled
+
+        // Handle final newline if enabled
         if (this.insertFinalNewline && formattedLines[formattedLines.length - 1] !== '') {
             formattedLines.push('');
         }
 
-        const fullRange = range || 
-            new Range(
-                new Position(0, 0),
-                document.positionAt(document.getText().length)
-            );
-
+        // Create text edits
+        const fullRange = range || new Range(
+            0, 0,
+            document.lineCount - 1,
+            document.lineAt(document.lineCount - 1).text.length
+        );
+        
         return [TextEdit.replace(fullRange, formattedLines.join('\n'))];
     }
 
     private breakLongLine(line: string, indentLevel: number): string {
-        // Simple line breaking logic - can be enhanced with more sophisticated rules
-        const indent = ' '.repeat(this.indentSize * indentLevel);
-        const parts = [];
-        let current = '';
-        
-        for (const token of line.split(' ')) {
-            if ((current + ' ' + token).length > this.maxLineLength) {
-                parts.push(current);
-                current = indent + token;
-            } else {
-                current = current ? current + ' ' + token : token;
+        // Simple line breaking for parameters
+        if (line.includes('(') && line.includes(')')) {
+            const parts = line.split('(');
+            const prefix = parts[0];
+            const params = parts[1].replace(')', '').split(',');
+            
+            let result = ' '.repeat(this.indentSize * indentLevel) + prefix + '(';
+            for (let i = 0; i < params.length; i++) {
+                const param = params[i].trim();
+                if (i < params.length - 1) {
+                    result += '\n' + ' '.repeat(this.indentSize * (indentLevel + 1)) + param + ',';
+                } else {
+                    result += '\n' + ' '.repeat(this.indentSize * (indentLevel + 1)) + param;
+                }
             }
+            result += '\n' + ' '.repeat(this.indentSize * indentLevel) + ')';
+            return result;
         }
         
-        if (current) {
-            parts.push(current);
-        }
-        
-        return parts.join('\n');
+        // Default: just indent
+        return ' '.repeat(this.indentSize * indentLevel) + line;
     }
 }
 
 // Register the formatter
-export function registerFormatter(context: vscode.ExtensionContext) {
+export function registerFormatter(context: vscode.ExtensionContext): void {
     try {
-        console.log('Creating AILang formatter instance...');
-        const formatter = new AILangFormatter();
-        console.log('AILang formatter instance created successfully');
+        console.log('Registering AILang formatter...');
         
-        // Register document formatting provider for AILang language ID
-        console.log('Registering document formatting provider for AILang...');
+        // Check if formatting is enabled in settings
+        const settingsManager = getSettingsManager();
+        if (!settingsManager.formattingEnabled) {
+            console.log('Formatter registration skipped - formatting is disabled in settings');
+            return;
+        }
+        
+        // Create formatter instance
+        const formatter = new AILangFormatter();
+        
+        // Define document selectors
         const documentSelector = [
-            { scheme: 'file', language: 'ailang' },
-            { scheme: 'file', pattern: '**/*.ail' }
+            { language: 'ailang', scheme: 'file' },
+            { pattern: '**/*.ail', scheme: 'file' }
         ];
         
         // Register document formatting provider
@@ -204,6 +224,12 @@ export function registerFormatter(context: vscode.ExtensionContext) {
                 
                 const document = editor.document;
                 console.log(`Formatting document: ${document.fileName}, Language ID: ${document.languageId}`);
+                
+                // Check if formatting is enabled
+                if (!settingsManager.formattingEnabled) {
+                    vscode.window.showInformationMessage('AILang formatting is disabled in settings');
+                    return;
+                }
                 
                 // Check if this is an AILang file by extension or language ID
                 const isAILangFile = document.fileName.endsWith('.ail') || document.languageId === 'ailang';

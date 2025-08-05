@@ -9,6 +9,7 @@ import { registerDiagnosticProvider } from './diagnosticProvider';
 import { registerCodeActionProvider } from './codeActionProvider';
 import { registerFoldingRangeProvider } from './foldingRangeProvider';
 import { logDebugInfo } from './debug';
+import { AILangSettingsManager, getSettingsManager } from './settingsManager';
 
 let client: LanguageClient;
 
@@ -19,6 +20,10 @@ export async function activate(context: ExtensionContext) {
     console.log('Extension path:', context.extensionPath);
     console.log('Extension URI:', context.extensionUri.toString());
     console.log('Extension mode:', context.extensionMode);
+    
+    // Initialize settings manager
+    const settingsManager = getSettingsManager();
+    console.log('Settings manager initialized');
     
     const welcomeCommand = commands.registerCommand('ailang.showWelcome', () => {
         window.showInformationMessage('Welcome to AILang extension!');
@@ -96,29 +101,49 @@ export async function activate(context: ExtensionContext) {
         
         // Register providers with error handling
         try {
-            console.log('Registering hover provider...');
-            registerHoverProvider(context);
-            console.log('Hover provider registered successfully');
+            // Register the formatter
+            if (settingsManager.formattingEnabled) {
+                console.log('Registering formatter...');
+                registerFormatter(context);
+            } else {
+                console.log('Formatter disabled in settings');
+            }
             
-            console.log('Registering formatter...');
-            registerFormatter(context);
-            console.log('Formatter registered successfully');
+            // Register the completion provider
+            if (settingsManager.completionEnabled) {
+                console.log('Registering completion provider...');
+                registerCompletionProvider(context);
+            } else {
+                console.log('Completion provider disabled in settings');
+            }
             
-            console.log('Registering completion provider...');
-            registerCompletionProvider(context);
-            console.log('Completion provider registered successfully');
+            // Register the hover provider
+            if (settingsManager.hoverEnabled) {
+                console.log('Registering hover provider...');
+                registerHoverProvider(context);
+            } else {
+                console.log('Hover provider disabled in settings');
+            }
             
-            console.log('Registering diagnostic provider...');
-            registerDiagnosticProvider(context);
-            console.log('Diagnostic provider registered successfully');
+            // Register the diagnostic provider
+            if (settingsManager.validationEnabled) {
+                console.log('Registering diagnostic provider...');
+                registerDiagnosticProvider(context);
+            } else {
+                console.log('Diagnostic provider disabled in settings');
+            }
             
-            console.log('Registering code action provider...');
-            registerCodeActionProvider(context);
-            console.log('Code action provider registered successfully');
+            // Register the code action provider
+            if (settingsManager.codeActionsEnabled) {
+                console.log('Registering code action provider...');
+                registerCodeActionProvider(context);
+            } else {
+                console.log('Code action provider disabled in settings');
+            }
             
+            // Register the folding range provider
             console.log('Registering folding range provider...');
             registerFoldingRangeProvider(context);
-            console.log('Folding range provider registered successfully');
         } catch (error) {
             console.error('Failed to register providers:', error);
             window.showErrorMessage(`Failed to register providers: ${error}`);
@@ -148,6 +173,24 @@ export async function activate(context: ExtensionContext) {
         // Start the language server
         console.log('Starting language server...');
         startLanguageServer(context, config);
+        
+        // Register configuration change listener
+        context.subscriptions.push(
+            workspace.onDidChangeConfiguration(e => {
+                if (e.affectsConfiguration('ailang')) {
+                    console.log('AILang configuration changed, reloading settings...');
+                    settingsManager.reloadSettings();
+                    
+                    // Restart the language server if server-related settings changed
+                    if (e.affectsConfiguration('ailang.path') || 
+                        e.affectsConfiguration('ailang.configPath') ||
+                        e.affectsConfiguration('ailang.trace.server')) {
+                        console.log('Server-related settings changed, restarting server...');
+                        restartLanguageServer(context);
+                    }
+                }
+            })
+        );
         
         // Show welcome message on first activation
         const isFirstActivation = context.globalState.get('isFirstActivation', true);
@@ -216,6 +259,7 @@ async function validateCurrentFile() {
 
 async function formatCurrentFile() {
     try {
+        console.log('Formatting current file...');
         const editor = window.activeTextEditor;
         if (!editor) {
             window.showWarningMessage('No active editor found');
@@ -223,12 +267,20 @@ async function formatCurrentFile() {
         }
         
         const document = editor.document;
-        console.log(`Formatting document: ${document.fileName}, Language ID: ${document.languageId}`);
+        console.log(`Current document: ${document.fileName}, Language ID: ${document.languageId}`);
         
-        // If the file is not recognized as AILang but has .ail extension, set the language ID
+        // Check if formatting is enabled
+        const settingsManager = getSettingsManager();
+        if (!settingsManager.formattingEnabled) {
+            window.showInformationMessage('AILang formatting is disabled in settings');
+            return;
+        }
+        
+        // Set the language ID to ailang if it's not already set
         if (document.languageId !== 'ailang' && document.fileName.endsWith('.ail')) {
-            console.log('Setting language ID to ailang for .ail file');
+            console.log('Setting language ID to ailang...');
             await commands.executeCommand('setEditorLanguage', { languageId: 'ailang' });
+            
             // Wait a moment for the language ID to be applied
             await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -247,6 +299,8 @@ async function formatCurrentFile() {
 function startLanguageServer(context: ExtensionContext, config: WorkspaceConfiguration) {
     try {
         console.log('Starting language server setup...');
+        
+        const settingsManager = getSettingsManager();
         
         // The server is implemented in Node.js
         const serverModule = context.asAbsolutePath(
@@ -302,6 +356,34 @@ function startLanguageServer(context: ExtensionContext, config: WorkspaceConfigu
                     console.log('Language client connection closed');
                     return { action: CloseAction.Restart };
                 }
+            },
+            // Initialize settings
+            initializationOptions: {
+                validation: {
+                    enable: settingsManager.validationEnabled,
+                    strict: settingsManager.validationStrict,
+                    checkNamingConventions: settingsManager.checkNamingConventions,
+                    checkDeprecated: settingsManager.checkDeprecated,
+                    maxNumberOfProblems: settingsManager.maxNumberOfProblems,
+                    maxWarningLevel: settingsManager.maxWarningLevel,
+                    ignorePatterns: settingsManager.ignorePatterns
+                },
+                format: {
+                    enable: settingsManager.formattingEnabled,
+                    indentSize: settingsManager.indentSize,
+                    insertFinalNewline: settingsManager.insertFinalNewline,
+                    trimTrailingWhitespace: settingsManager.trimTrailingWhitespace
+                },
+                experimental: {
+                    enableAdvancedValidation: settingsManager.enableAdvancedValidation,
+                    enableTypeChecking: settingsManager.enableTypeChecking
+                },
+                performance: {
+                    enableCaching: settingsManager.enableCaching,
+                    debounceDelay: settingsManager.debounceDelay,
+                    maxFileSize: settingsManager.maxFileSize,
+                    enableBackgroundProcessing: settingsManager.enableBackgroundProcessing
+                }
             }
         };
         
@@ -325,5 +407,25 @@ function startLanguageServer(context: ExtensionContext, config: WorkspaceConfigu
     } catch (error) {
         console.error('Error in startLanguageServer:', error);
         window.showErrorMessage(`Error starting AILang language server: ${error}`);
+    }
+}
+
+/**
+ * Restart the language server
+ */
+async function restartLanguageServer(context: ExtensionContext) {
+    try {
+        if (client) {
+            console.log('Stopping language client...');
+            await client.stop();
+            client = undefined;
+        }
+        
+        console.log('Restarting language server...');
+        const config = workspace.getConfiguration('ailang');
+        startLanguageServer(context, config);
+    } catch (error) {
+        console.error('Error restarting language server:', error);
+        window.showErrorMessage(`Error restarting AILang language server: ${error}`);
     }
 }

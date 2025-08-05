@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getSettingsManager } from './settingsManager';
 
 interface HoverInfo {
     signature: string;
@@ -379,56 +380,39 @@ const HOVER_DOCS: Record<string, HoverInfo> = {
 };
 
 export class AILangHoverProvider implements vscode.HoverProvider {
-    private config: vscode.WorkspaceConfiguration;
-    
     constructor() {
-        // Initialize with default configuration
-        this.config = vscode.workspace.getConfiguration('ailang');
-        
-        // Listen for configuration changes
-        vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('ailang.hover')) {
-                this.config = vscode.workspace.getConfiguration('ailang');
-                console.log('Hover configuration updated');
-            }
-        });
+        // No need to initialize config here as we'll use the settings manager
     }
-    
+
     public provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.Hover> {
-        console.log('\n=== Hover Provider Called ===');
-        console.log('Document language:', document.languageId);
-        console.log('File path:', document.uri.fsPath);
-        console.log('Position:', position.line + 1, ':', position.character + 1);
-        
-        // Check if hover is enabled in settings
-        const hoverConfig = this.config.get<{ enable: boolean }>('hover', { enable: true });
-        if (!hoverConfig.enable) {
-            console.log('Hover provider disabled by configuration');
-            return undefined;
-        }
-        
         try {
-            const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z0-9_]+/);
+            // Get settings manager
+            const settingsManager = getSettingsManager();
+            
+            // Check if hover is enabled
+            if (!settingsManager.hoverEnabled) {
+                return undefined;
+            }
+            
+            const wordRange = document.getWordRangeAtPosition(position);
             if (!wordRange) {
-                console.log('No word found at position');
                 return undefined;
             }
 
             const word = document.getText(wordRange).toLowerCase();
             const line = document.lineAt(position.line).text;
-            console.log('Word under cursor:', word);
-            console.log('Current line:', line);
+
+            console.log('Hover requested for word:', word);
             
-            // Try to find the hover info for the exact word
+            // Check if the word exists in our hover documentation
             let hoverInfo = HOVER_DOCS[word];
             
-            // If not found, check if it's a layer parameter or other context-specific term
+            // If not found directly, try to determine context
             if (!hoverInfo) {
-                // Check the current line for context
                 const contextInfo = this.getContextFromLine(line, word);
                 if (contextInfo) {
                     hoverInfo = HOVER_DOCS[contextInfo];
@@ -456,17 +440,15 @@ export class AILangHoverProvider implements vscode.HoverProvider {
             }
 
             // Add examples section if available and enabled in settings
-            const showExamples = this.config.get<boolean>('hover.showExamples', true);
-            if (showExamples && hoverInfo.examples && hoverInfo.examples.length > 0) {
+            if (settingsManager.showExamples && hoverInfo.examples && hoverInfo.examples.length > 0) {
                 markdown.appendMarkdown('\n\n### Examples\n');
                 hoverInfo.examples.forEach(example => {
                     markdown.appendMarkdown(example + '\n');
                 });
             }
 
-            // Add documentation link if available and enabled in settings
-            const showLinks = this.config.get<boolean>('hover.showLinks', true);
-            if (showLinks && hoverInfo.link) {
+            // Add documentation link if available
+            if (hoverInfo.link) {
                 markdown.appendMarkdown(`\n\n[Documentation](${hoverInfo.link})`);
             }
 
@@ -509,6 +491,13 @@ export class AILangHoverProvider implements vscode.HoverProvider {
 export function registerHoverProvider(context: vscode.ExtensionContext): void {
     console.log('Registering hover provider for AILang');
     try {
+        // Check if hover is enabled in settings
+        const settingsManager = getSettingsManager();
+        if (!settingsManager.hoverEnabled) {
+            console.log('Hover provider registration skipped - hover is disabled in settings');
+            return;
+        }
+        
         const hoverProvider = vscode.languages.registerHoverProvider(
             { scheme: 'file', language: 'ailang' },
             new AILangHoverProvider()

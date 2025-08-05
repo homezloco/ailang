@@ -287,6 +287,137 @@
               "description": "Enable experimental type checking"
             }
           }
+        },
+        "ailang.visualization": {
+          "type": "object",
+          "title": "Visualization",
+          "description": "AILang model visualization settings",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable/disable model visualization"
+            },
+            "autoShowOnOpen": {
+              "type": "boolean",
+              "default": false,
+              "description": "Automatically show visualization when opening an AILang file"
+            },
+            "theme": {
+              "type": "string",
+              "enum": ["system", "light", "dark"],
+              "default": "system",
+              "description": "Theme for model visualization"
+            },
+            "layout": {
+              "type": "string",
+              "enum": ["auto", "vertical", "horizontal"],
+              "default": "auto",
+              "description": "Layout for model visualization"
+            },
+            "showLayerDetails": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show detailed information for each layer"
+            },
+            "maxDisplayedLayers": {
+              "type": "number",
+              "default": 100,
+              "description": "Maximum number of layers to display in visualization"
+            }
+          }
+        },
+        "ailang.performance": {
+          "type": "object",
+          "title": "Performance",
+          "description": "AILang performance settings",
+          "properties": {
+            "enableCaching": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable caching for improved performance"
+            },
+            "debounceDelay": {
+              "type": "number",
+              "default": 300,
+              "description": "Delay in milliseconds for debouncing operations"
+            },
+            "maxFileSize": {
+              "type": "number",
+              "default": 1000000,
+              "description": "Maximum file size in bytes for processing"
+            },
+            "enableBackgroundProcessing": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable background processing for improved responsiveness"
+            }
+          }
+        },
+        "ailang.aiIntegration": {
+          "type": "object",
+          "title": "AI Integration",
+          "description": "AILang AI integration settings",
+          "properties": {
+            "enableSuggestions": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable AI-powered suggestions"
+            },
+            "suggestionMode": {
+              "type": "string",
+              "enum": ["inline", "tooltip", "panel"],
+              "default": "inline",
+              "description": "How AI suggestions are displayed"
+            },
+            "modelOptimizationSuggestions": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable suggestions for model optimization"
+            },
+            "hyperparameterSuggestions": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable suggestions for hyperparameter tuning"
+            },
+            "showExplanations": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show explanations for AI suggestions"
+            }
+          }
+        },
+        "ailang.codeActions": {
+          "type": "object",
+          "title": "Code Actions",
+          "description": "AILang code actions settings",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable/disable code actions"
+            },
+            "enableQuickFixes": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable quick fixes for common issues"
+            },
+            "enableRefactoring": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable refactoring actions"
+            },
+            "enableModelTransformation": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable model transformation actions"
+            },
+            "enableLayerExtraction": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable layer extraction actions"
+            }
+          }
         }
       }
     },
