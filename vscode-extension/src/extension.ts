@@ -115,6 +115,10 @@ export async function activate(context: ExtensionContext) {
             console.log('Registering code action provider...');
             registerCodeActionProvider(context);
             console.log('Code action provider registered successfully');
+            
+            console.log('Registering folding range provider...');
+            registerFoldingRangeProvider(context);
+            console.log('Folding range provider registered successfully');
         } catch (error) {
             console.error('Failed to register providers:', error);
             window.showErrorMessage(`Failed to register providers: ${error}`);
@@ -153,44 +157,6 @@ export async function activate(context: ExtensionContext) {
         }
         
         console.log('AILang extension is now active!');
-        
-        // Register the formatter
-        try {
-            console.log('Registering formatter...');
-            registerFormatter(context);
-            console.log('Formatter registered successfully');
-        } catch (error) {
-            console.error('Failed to register formatter:', error);
-        }
-        
-        // Register the completion provider
-        try {
-            console.log('Registering completion provider...');
-            registerCompletionProvider(context);
-            console.log('Completion provider registered successfully');
-        } catch (error) {
-            console.error('Failed to register completion provider:', error);
-        }
-
-        // Register the diagnostic provider
-        try {
-            console.log('Registering diagnostic provider...');
-            registerDiagnosticProvider(context);
-            console.log('Diagnostic provider registered successfully');
-        } catch (error) {
-            console.error('Failed to register diagnostic provider:', error);
-        }
-        
-        // Register the code action provider
-        try {
-            console.log('Registering code action provider...');
-            registerCodeActionProvider(context);
-            console.log('Code action provider registered successfully');
-        } catch (error) {
-            console.error('Failed to register code action provider:', error);
-        }
-        
-        console.log('All providers registered successfully');
         
         // Log the current document language modes for debugging
         workspace.textDocuments.forEach(doc => {
