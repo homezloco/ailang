@@ -217,6 +217,24 @@ export class AILangCodeActionProvider {
                 arguments: [document.uri]
             };
             codeActions.push(convertToSequentialAction);
+            
+            // Add action to optimize hyperparameters
+            const optimizeHyperparametersAction = new vscode.CodeAction('Optimize hyperparameters', vscode.CodeActionKind.Refactor);
+            optimizeHyperparametersAction.command = {
+                title: 'Optimize hyperparameters',
+                command: 'ailang.optimizeHyperparameters',
+                arguments: [document.uri]
+            };
+            codeActions.push(optimizeHyperparametersAction);
+            
+            // Add action to validate model architecture
+            const validateModelAction = new vscode.CodeAction('Validate model architecture', vscode.CodeActionKind.Refactor);
+            validateModelAction.command = {
+                title: 'Validate model architecture',
+                command: 'ailang.validateModel',
+                arguments: [document.uri]
+            };
+            codeActions.push(validateModelAction);
         }
         
         // Only add layer extraction actions if they're enabled in settings
@@ -354,6 +372,252 @@ export function registerCodeActionProvider(context: vscode.ExtensionContext): vo
                 } catch (error) {
                     console.error('Error extracting layers:', error);
                     vscode.window.showErrorMessage(`Error extracting layers: ${error.message}`);
+                }
+            }),
+            
+            // Register the optimize hyperparameters command
+            vscode.commands.registerCommand('ailang.optimizeHyperparameters', async (uri: vscode.Uri) => {
+                try {
+                    // Get the document
+                    const document = await vscode.workspace.openTextDocument(uri);
+                    const text = document.getText();
+                    
+                    // Find the compile statement
+                    const compileRegex = /compile\s+([^;]*)/;
+                    const compileMatch = text.match(compileRegex);
+                    
+                    if (!compileMatch) {
+                        vscode.window.showErrorMessage('No compile statement found in the document');
+                        return;
+                    }
+                    
+                    // Extract the compile parameters
+                    const compileParams = compileMatch[1];
+                    
+                    // Check for optimizer
+                    const optimizerRegex = /optimizer\s*=\s*['"]([^'"]+)['"]/;
+                    const optimizerMatch = compileParams.match(optimizerRegex);
+                    
+                    if (!optimizerMatch) {
+                        vscode.window.showErrorMessage('No optimizer found in compile statement');
+                        return;
+                    }
+                    
+                    const currentOptimizer = optimizerMatch[1];
+                    
+                    // Suggest optimizers based on the current one
+                    let suggestedOptimizers: string[] = [];
+                    let suggestedLearningRates: string[] = [];
+                    
+                    switch (currentOptimizer) {
+                        case 'sgd':
+                            suggestedOptimizers = ['adam', 'rmsprop', 'sgd'];
+                            suggestedLearningRates = ['0.01', '0.001', '0.0001'];
+                            break;
+                        case 'adam':
+                            suggestedOptimizers = ['adam', 'adamw', 'nadam'];
+                            suggestedLearningRates = ['0.001', '0.0001', '0.00001'];
+                            break;
+                        case 'rmsprop':
+                            suggestedOptimizers = ['rmsprop', 'adam', 'adagrad'];
+                            suggestedLearningRates = ['0.001', '0.0005', '0.0001'];
+                            break;
+                        default:
+                            suggestedOptimizers = ['adam', 'rmsprop', 'sgd'];
+                            suggestedLearningRates = ['0.001', '0.0001'];
+                    }
+                    
+                    // Ask the user to select an optimizer
+                    const selectedOptimizer = await vscode.window.showQuickPick(suggestedOptimizers, {
+                        placeHolder: 'Select an optimizer',
+                        title: 'Optimize Hyperparameters'
+                    });
+                    
+                    if (!selectedOptimizer) {
+                        // User cancelled
+                        return;
+                    }
+                    
+                    // Ask the user to select a learning rate
+                    const selectedLearningRate = await vscode.window.showQuickPick(suggestedLearningRates, {
+                        placeHolder: 'Select a learning rate',
+                        title: 'Optimize Hyperparameters'
+                    });
+                    
+                    if (!selectedLearningRate) {
+                        // User cancelled
+                        return;
+                    }
+                    
+                    // Create the new optimizer configuration
+                    let newCompileParams = compileParams;
+                    
+                    // Replace the optimizer
+                    newCompileParams = newCompileParams.replace(
+                        optimizerRegex, 
+                        `optimizer='${selectedOptimizer}'`
+                    );
+                    
+                    // Check if learning rate is already specified
+                    const lrRegex = /learning_rate\s*=\s*([0-9.]+)/;
+                    if (lrRegex.test(newCompileParams)) {
+                        // Replace existing learning rate
+                        newCompileParams = newCompileParams.replace(
+                            lrRegex,
+                            `learning_rate=${selectedLearningRate}`
+                        );
+                    } else {
+                        // Add learning rate to the optimizer
+                        newCompileParams = newCompileParams.replace(
+                            `optimizer='${selectedOptimizer}'`,
+                            `optimizer='${selectedOptimizer}', learning_rate=${selectedLearningRate}`
+                        );
+                    }
+                    
+                    // Create and apply the edit
+                    const edit = new vscode.WorkspaceEdit();
+                    const compileStartIndex = compileMatch.index!;
+                    const compileEndIndex = compileStartIndex + compileMatch[0].length;
+                    const compileRange = new vscode.Range(
+                        document.positionAt(compileStartIndex),
+                        document.positionAt(compileEndIndex)
+                    );
+                    
+                    edit.replace(uri, compileRange, `compile ${newCompileParams}`);
+                    
+                    const success = await vscode.workspace.applyEdit(edit);
+                    if (success) {
+                        vscode.window.showInformationMessage(`Updated optimizer to '${selectedOptimizer}' with learning rate ${selectedLearningRate}`);
+                    } else {
+                        vscode.window.showErrorMessage('Failed to update optimizer');
+                    }
+                } catch (error) {
+                    console.error('Error optimizing hyperparameters:', error);
+                    vscode.window.showErrorMessage(`Error optimizing hyperparameters: ${error.message}`);
+                }
+            }),
+            
+            // Register the validate model command
+            vscode.commands.registerCommand('ailang.validateModel', async (uri: vscode.Uri) => {
+                try {
+                    // Get the document
+                    const document = await vscode.workspace.openTextDocument(uri);
+                    const text = document.getText();
+                    
+                    // Find the model definition
+                    const modelRegex = /model\s+(\w+)\s*{([^}]*)}/g;
+                    const matches = [...text.matchAll(modelRegex)];
+                    
+                    if (matches.length === 0) {
+                        vscode.window.showErrorMessage('No model definition found in the document');
+                        return;
+                    }
+                    
+                    // If there are multiple models, ask the user which one to validate
+                    let selectedModelMatch: RegExpMatchArray;
+                    
+                    if (matches.length === 1) {
+                        selectedModelMatch = matches[0];
+                    } else {
+                        // Extract model names for the quick pick
+                        const modelNames = matches.map(match => match[1]);
+                        
+                        const selectedName = await vscode.window.showQuickPick(modelNames, {
+                            placeHolder: 'Select a model to validate'
+                        });
+                        
+                        if (!selectedName) {
+                            // User cancelled
+                            return;
+                        }
+                        
+                        selectedModelMatch = matches.find(match => match[1] === selectedName)!;
+                    }
+                    
+                    // Extract model name and body
+                    const modelName = selectedModelMatch[1];
+                    const modelBody = selectedModelMatch[2];
+                    
+                    // Extract layers from the model body
+                    const layerRegex = /\s*([\w\d]+)\s*\(([^)]*)\)/g;
+                    const layerMatches = [...modelBody.matchAll(layerRegex)];
+                    
+                    if (layerMatches.length === 0) {
+                        vscode.window.showErrorMessage('No layers found in the model');
+                        return;
+                    }
+                    
+                    // Perform basic validation
+                    const validationResults: string[] = [];
+                    let hasInputLayer = false;
+                    let hasOutputLayer = false;
+                    let hasFlatten = false;
+                    let hasConvLayer = false;
+                    let hasDenseLayer = false;
+                    
+                    for (const layerMatch of layerMatches) {
+                        const layerType = layerMatch[1];
+                        
+                        if (layerType === 'Input') {
+                            hasInputLayer = true;
+                        } else if (layerType === 'Dense' && layerMatch[2].includes('softmax') || layerMatch[2].includes('sigmoid')) {
+                            hasOutputLayer = true;
+                        } else if (layerType === 'Flatten') {
+                            hasFlatten = true;
+                        } else if (layerType.includes('Conv')) {
+                            hasConvLayer = true;
+                        } else if (layerType === 'Dense') {
+                            hasDenseLayer = true;
+                        }
+                    }
+                    
+                    // Check for common issues
+                    if (!hasInputLayer) {
+                        validationResults.push('❌ Missing Input layer');
+                    }
+                    
+                    if (!hasOutputLayer) {
+                        validationResults.push('❌ Missing output activation (softmax/sigmoid)');
+                    }
+                    
+                    if (hasConvLayer && !hasFlatten && hasDenseLayer) {
+                        validationResults.push('❌ Conv layers should be flattened before Dense layers');
+                    }
+                    
+                    // Check the compile statement
+                    const compileRegex = /compile\s+([^;]*)/;
+                    const compileMatch = text.match(compileRegex);
+                    
+                    if (!compileMatch) {
+                        validationResults.push('❌ Missing compile statement');
+                    } else {
+                        const compileParams = compileMatch[1];
+                        
+                        if (!compileParams.includes('optimizer')) {
+                            validationResults.push('❌ Missing optimizer in compile statement');
+                        }
+                        
+                        if (!compileParams.includes('loss')) {
+                            validationResults.push('❌ Missing loss function in compile statement');
+                        }
+                        
+                        if (!compileParams.includes('metrics')) {
+                            validationResults.push('❌ Missing metrics in compile statement');
+                        }
+                    }
+                    
+                    // If no issues found, add a success message
+                    if (validationResults.length === 0) {
+                        validationResults.push('✅ Model structure looks good!');
+                    }
+                    
+                    // Show the validation results
+                    const validationMessage = `Validation results for model '${modelName}':\n\n${validationResults.join('\n')}`;
+                    vscode.window.showInformationMessage(validationMessage, { modal: true });
+                    
+                } catch (error) {
+                    console.error('Error validating model:', error);
+                    vscode.window.showErrorMessage(`Error validating model: ${error.message}`);
                 }
             })
         );
