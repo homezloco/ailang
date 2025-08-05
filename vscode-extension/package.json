@@ -85,6 +85,14 @@
         "title": "AILang: Convert to Sequential Model"
       },
       {
+        "command": "ailang.visualizeModelArchitecture",
+        "title": "AILang: Visualize Model Architecture"
+      },
+      {
+        "command": "ailang.optimizeHyperparameters",
+        "title": "AILang: Optimize Hyperparameters"
+      },
+      {
         "command": "ailang.debugInfo",
         "title": "AILang: Debug Info"
       }
@@ -432,6 +440,16 @@
           "command": "ailang.formatFile",
           "when": "resourceLangId == ailang",
           "group": "ailang"
+        },
+        {
+          "command": "ailang.visualizeModelArchitecture",
+          "when": "resourceLangId == ailang",
+          "group": "ailang"
+        },
+        {
+          "command": "ailang.optimizeHyperparameters",
+          "when": "resourceLangId == ailang",
+          "group": "ailang"
         }
       ],
       "commandPalette": [
@@ -466,7 +484,14 @@
           "command": "ailang.convertToSequentialModel",
           "when": "editorLangId == ailang"
         },
-
+        {
+          "command": "ailang.visualizeModelArchitecture",
+          "when": "editorLangId == ailang"
+        },
+        {
+          "command": "ailang.optimizeHyperparameters",
+          "when": "editorLangId == ailang"
+        },
         {
           "command": "ailang.showWelcome"
         }

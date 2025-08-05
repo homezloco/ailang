@@ -2,6 +2,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { workspace, ExtensionContext, commands, window, WorkspaceConfiguration, Progress, Uri } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, ErrorAction, CloseAction } from 'vscode-languageclient/node';
+import * as fs from 'fs';
+import * as os from 'os';
 import { registerFormatter } from './formatter';
 import { registerCompletionProvider } from './completionProvider';
 import { registerHoverProvider } from './hoverProvider';
@@ -92,6 +94,10 @@ export async function activate(context: ExtensionContext) {
         const validateModelCommand = commands.registerCommand('ailang.validateModel', validateModel);
         context.subscriptions.push(validateModelCommand);
         console.log('Registered ailang.validateModel command');
+        
+        const visualizeModelArchitectureCommand = commands.registerCommand('ailang.visualizeModelArchitecture', visualizeModelArchitecture);
+        context.subscriptions.push(visualizeModelArchitectureCommand);
+        console.log('Registered ailang.visualizeModelArchitecture command');
         
         // Register a command to set the language ID for the current file
         const setLanguageCommand = commands.registerCommand('ailang.setLanguageId', async () => {
@@ -741,6 +747,609 @@ async function validateModel(uri?: Uri) {
         console.error('Error validating model:', error);
         window.showErrorMessage(`Error validating model: ${error.message}`);
     }
+}
+
+/**
+ * Visualize the model architecture
+ */
+async function visualizeModelArchitecture(uri?: Uri) {
+    try {
+        const document = await getDocumentFromUri(uri);
+        if (!document) return;
+        
+        // Get settings manager to respect user configuration
+        const settingsManager = getSettingsManager();
+        
+        // Parse the model from the document
+        const text = document.getText();
+        const modelRegex = /model\s+(\w+)\s*{([^}]*)}/g;
+        const modelMatch = modelRegex.exec(text);
+        
+        if (!modelMatch) {
+            window.showErrorMessage('No model definition found in the current file.');
+            return;
+        }
+        
+        const modelName = modelMatch[1];
+        const modelContent = modelMatch[2];
+        
+        // Extract layers
+        const layerRegex = /\s*(\w+)\s*\(([^)]*)\)/g;
+        const layers: ModelLayer[] = [];
+        let layerMatch;
+        let layerIndex = 0;
+        
+        while ((layerMatch = layerRegex.exec(modelContent)) !== null) {
+            const layerType = layerMatch[1];
+            const layerParams = layerMatch[2];
+            
+            // Parse parameters
+            const params: { [key: string]: string } = {};
+            const paramPairs = layerParams.split(',');
+            
+            for (const pair of paramPairs) {
+                const [key, value] = pair.split('=').map(s => s.trim());
+                if (key && value) {
+                    params[key] = value;
+                }
+            }
+            
+            // Extract units/filters/size information
+            let units = 0;
+            let inputShape: number[] = [];
+            let outputShape: number[] = [];
+            
+            if (params.units) {
+                units = parseInt(params.units, 10);
+            } else if (params.filters) {
+                units = parseInt(params.filters, 10);
+            }
+            
+            if (params.input_shape) {
+                // Parse input shape like (28, 28, 1)
+                const shapeStr = params.input_shape.replace(/[()]/g, '');
+                inputShape = shapeStr.split(',').map(s => parseInt(s.trim(), 10));
+            }
+            
+            // Calculate output shape based on layer type and parameters
+            if (layerType === 'Dense') {
+                if (layers.length > 0) {
+                    const prevLayer = layers[layers.length - 1];
+                    inputShape = prevLayer.outputShape;
+                }
+                outputShape = [units];
+            } else if (layerType.includes('Conv2D')) {
+                if (layers.length > 0) {
+                    const prevLayer = layers[layers.length - 1];
+                    inputShape = prevLayer.outputShape;
+                }
+                // Simple estimation for conv layers
+                const kernelSize = params.kernel_size ? parseInt(params.kernel_size, 10) : 3;
+                const stride = params.strides ? parseInt(params.strides, 10) : 1;
+                const padding = params.padding === 'same' ? 0 : kernelSize - 1;
+                
+                if (inputShape.length >= 2) {
+                    const outputHeight = Math.floor((inputShape[0] - kernelSize + padding) / stride + 1);
+                    const outputWidth = Math.floor((inputShape[1] - kernelSize + padding) / stride + 1);
+                    outputShape = [outputHeight, outputWidth, units];
+                }
+            } else if (layerType.includes('Pool')) {
+                if (layers.length > 0) {
+                    const prevLayer = layers[layers.length - 1];
+                    inputShape = prevLayer.outputShape;
+                }
+                // Simple estimation for pooling layers
+                const poolSize = params.pool_size ? parseInt(params.pool_size, 10) : 2;
+                const stride = params.strides ? parseInt(params.strides, 10) : poolSize;
+                
+                if (inputShape.length >= 3) {
+                    const outputHeight = Math.floor(inputShape[0] / stride);
+                    const outputWidth = Math.floor(inputShape[1] / stride);
+                    outputShape = [outputHeight, outputWidth, inputShape[2]];
+                }
+            } else if (layerType === 'Flatten') {
+                if (layers.length > 0) {
+                    const prevLayer = layers[layers.length - 1];
+                    inputShape = prevLayer.outputShape;
+                }
+                // Flatten all dimensions into one
+                let totalUnits = 1;
+                for (const dim of inputShape) {
+                    totalUnits *= dim;
+                }
+                outputShape = [totalUnits];
+            } else {
+                // For other layers, assume shape is preserved
+                if (layers.length > 0) {
+                    const prevLayer = layers[layers.length - 1];
+                    inputShape = prevLayer.outputShape;
+                    outputShape = [...inputShape];
+                }
+            }
+            
+            layers.push({
+                id: layerIndex++,
+                name: `${layerType}_${layerIndex}`,
+                type: layerType,
+                params: params,
+                units: units,
+                inputShape: inputShape,
+                outputShape: outputShape
+            });
+        }
+        
+        // Generate visualization options
+        const visualizationOptions = [
+            { label: 'SVG Diagram', id: 'svg' },
+            { label: 'HTML Interactive', id: 'html' },
+            { label: 'Text Summary', id: 'text' },
+            { label: 'JSON Structure', id: 'json' }
+        ];
+        
+        // Show visualization options
+        const selectedOption = await window.showQuickPick(visualizationOptions, {
+            placeHolder: 'Select visualization format'
+        });
+        
+        if (!selectedOption) {
+            return; // User cancelled
+        }
+        
+        // Generate visualization based on selected format
+        let visualizationContent = '';
+        let fileExtension = '';
+        
+        switch (selectedOption.id) {
+            case 'svg':
+                visualizationContent = generateSvgVisualization(modelName, layers);
+                fileExtension = 'svg';
+                break;
+            case 'html':
+                visualizationContent = generateHtmlVisualization(modelName, layers);
+                fileExtension = 'html';
+                break;
+            case 'text':
+                visualizationContent = generateTextVisualization(modelName, layers);
+                fileExtension = 'txt';
+                break;
+            case 'json':
+                visualizationContent = JSON.stringify(layers, null, 2);
+                fileExtension = 'json';
+                break;
+        }
+        
+        // Create a temporary file to show the visualization
+        const tempFile = path.join(os.tmpdir(), `ailang-model-${modelName}-${Date.now()}.${fileExtension}`);
+        fs.writeFileSync(tempFile, visualizationContent);
+        
+        // Open the temp file
+        if (fileExtension === 'html') {
+            // Open in external browser
+            vscode.env.openExternal(vscode.Uri.file(tempFile));
+        } else if (fileExtension === 'svg') {
+            // Try to open with SVG viewer if available
+            vscode.commands.executeCommand('vscode.open', vscode.Uri.file(tempFile));
+        } else {
+            // Open in editor
+            vscode.workspace.openTextDocument(tempFile).then(doc => {
+                vscode.window.showTextDocument(doc);
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error visualizing model architecture:', error);
+        window.showErrorMessage(`Error visualizing model architecture: ${error.message}`);
+    }
+}
+
+/**
+ * Generate SVG visualization of model architecture
+ */
+function generateSvgVisualization(modelName: string, layers: ModelLayer[]): string {
+    // SVG constants
+    const width = 800;
+    const height = 100 + layers.length * 100;
+    const layerWidth = 180;
+    const layerHeight = 80;
+    const xOffset = (width - layerWidth) / 2;
+    const colors = {
+        dense: '#4285F4',
+        conv: '#EA4335',
+        pool: '#FBBC05',
+        dropout: '#34A853',
+        flatten: '#FF6D01',
+        batch: '#46BDC6',
+        activation: '#9C27B0',
+        default: '#757575'
+    };
+    
+    // Start SVG
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <style>
+        .layer { fill: #ffffff; stroke-width: 2px; }
+        .layer-text { font-family: Arial; font-size: 14px; fill: #ffffff; text-anchor: middle; }
+        .layer-params { font-family: Arial; font-size: 12px; fill: #ffffff; text-anchor: middle; }
+        .arrow { fill: none; stroke: #757575; stroke-width: 2px; }
+        .title { font-family: Arial; font-size: 20px; font-weight: bold; text-anchor: middle; }
+    </style>
+    <rect width="${width}" height="${height}" fill="#f5f5f5" />
+    <text x="${width/2}" y="40" class="title">Model: ${modelName}</text>
+`;
+    
+    // Draw layers
+    for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        const y = 80 + i * 100;
+        
+        // Determine color based on layer type
+        let color = colors.default;
+        if (layer.type.toLowerCase().includes('dense')) color = colors.dense;
+        else if (layer.type.toLowerCase().includes('conv')) color = colors.conv;
+        else if (layer.type.toLowerCase().includes('pool')) color = colors.pool;
+        else if (layer.type.toLowerCase().includes('dropout')) color = colors.dropout;
+        else if (layer.type.toLowerCase().includes('flatten')) color = colors.flatten;
+        else if (layer.type.toLowerCase().includes('batch')) color = colors.batch;
+        else if (layer.type.toLowerCase().includes('activation')) color = colors.activation;
+        
+        // Draw connection arrow from previous layer
+        if (i > 0) {
+            const prevY = 80 + (i - 1) * 100;
+            svg += `    <path d="M ${xOffset + layerWidth/2} ${prevY + layerHeight} L ${xOffset + layerWidth/2} ${y}" class="arrow" marker-end="url(#arrow)" />`;
+        }
+        
+        // Draw layer box
+        svg += `    <rect x="${xOffset}" y="${y}" width="${layerWidth}" height="${layerHeight}" rx="5" class="layer" stroke="${color}" fill="${color}" />`;
+        
+        // Draw layer text
+        svg += `    <text x="${xOffset + layerWidth/2}" y="${y + 25}" class="layer-text">${layer.type}</text>`;
+        
+        // Draw shape info
+        let shapeText = '';
+        if (layer.inputShape.length > 0 && layer.outputShape.length > 0) {
+            shapeText = `${layer.inputShape.join('×')} → ${layer.outputShape.join('×')}`;
+        } else if (layer.units > 0) {
+            shapeText = `Units: ${layer.units}`;
+        }
+        
+        if (shapeText) {
+            svg += `    <text x="${xOffset + layerWidth/2}" y="${y + 50}" class="layer-params">${shapeText}</text>`;
+        }
+    }
+    
+    // Add arrow marker definition
+    svg += `    <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#757575" />
+        </marker>
+    </defs>`;
+    
+    // Close SVG
+    svg += '</svg>';
+    
+    return svg;
+}
+
+/**
+ * Generate HTML visualization of model architecture with interactive elements
+ */
+function generateHtmlVisualization(modelName: string, layers: ModelLayer[]): string {
+    // Create HTML with embedded CSS and JavaScript for interactivity
+    let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AILang Model: ${modelName}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .model-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        .layers-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .layer {
+            padding: 15px;
+            border-radius: 6px;
+            color: white;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .layer:hover {
+            transform: translateY(-2px);
+        }
+        .layer-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .layer-type {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .layer-shape {
+            font-size: 14px;
+        }
+        .layer-details {
+            display: none;
+            background-color: rgba(255,255,255,0.1);
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+        .arrow {
+            text-align: center;
+            color: #757575;
+            font-size: 20px;
+            margin: -5px 0;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #e9f5ff;
+            border-radius: 6px;
+        }
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .param-table th, .param-table td {
+            text-align: left;
+            padding: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        .param-table th {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AILang Model: ${modelName}</h1>
+        
+        <div class="model-info">
+            <strong>Total layers:</strong> ${layers.length}<br>
+            <strong>Model type:</strong> ${determineModelType(layers)}<br>
+            <strong>Input shape:</strong> ${layers.length > 0 && layers[0].inputShape.length > 0 ? layers[0].inputShape.join('×') : 'Unknown'}<br>
+            <strong>Output shape:</strong> ${layers.length > 0 ? layers[layers.length-1].outputShape.join('×') : 'Unknown'}
+        </div>
+        
+        <div class="layers-container">`;
+    
+    // Add each layer
+    for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        
+        // Determine color based on layer type
+        let color = '#757575';
+        if (layer.type.toLowerCase().includes('dense')) color = '#4285F4';
+        else if (layer.type.toLowerCase().includes('conv')) color = '#EA4335';
+        else if (layer.type.toLowerCase().includes('pool')) color = '#FBBC05';
+        else if (layer.type.toLowerCase().includes('dropout')) color = '#34A853';
+        else if (layer.type.toLowerCase().includes('flatten')) color = '#FF6D01';
+        else if (layer.type.toLowerCase().includes('batch')) color = '#46BDC6';
+        else if (layer.type.toLowerCase().includes('activation')) color = '#9C27B0';
+        
+        // Add arrow between layers
+        if (i > 0) {
+            html += `
+            <div class="arrow">↓</div>`;
+        }
+        
+        // Add layer
+        html += `
+            <div class="layer" style="background-color: ${color};" onclick="toggleDetails(${i})">
+                <div class="layer-header">
+                    <div class="layer-type">${layer.type}</div>
+                    <div class="layer-shape">`;
+        
+        // Add shape info
+        if (layer.inputShape.length > 0 && layer.outputShape.length > 0) {
+            html += `${layer.inputShape.join('×')} → ${layer.outputShape.join('×')}`;
+        } else if (layer.units > 0) {
+            html += `Units: ${layer.units}`;
+        }
+        
+        html += `</div>
+                </div>
+                
+                <div id="details-${i}" class="layer-details">
+                    <table class="param-table">
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Value</th>
+                        </tr>`;
+        
+        // Add parameters
+        for (const [key, value] of Object.entries(layer.params)) {
+            html += `
+                        <tr>
+                            <td>${key}</td>
+                            <td>${value}</td>
+                        </tr>`;
+        }
+        
+        html += `
+                    </table>
+                </div>
+            </div>`;
+    }
+    
+    // Add model summary
+    html += `
+        </div>
+        
+        <div class="summary">
+            <h2>Model Summary</h2>
+            <p>This model contains ${countLayersByType(layers, 'Dense')} dense layers, 
+               ${countLayersByType(layers, 'Conv')} convolutional layers, 
+               ${countLayersByType(layers, 'Pool')} pooling layers, and 
+               ${countLayersByType(layers, 'Dropout')} dropout layers.</p>
+            <p>Total parameters: ${estimateTotalParameters(layers).toLocaleString()}</p>
+        </div>
+    </div>
+    
+    <script>
+        function toggleDetails(index) {
+            const detailsElement = document.getElementById('details-' + index);
+            if (detailsElement.style.display === 'block') {
+                detailsElement.style.display = 'none';
+            } else {
+                detailsElement.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>`;
+    
+    return html;
+}
+
+/**
+ * Generate text visualization of model architecture
+ */
+function generateTextVisualization(modelName: string, layers: ModelLayer[]): string {
+    let text = `Model: ${modelName}\n`;
+    text += `${'='.repeat(modelName.length + 7)}\n\n`;
+    
+    text += `Total layers: ${layers.length}\n`;
+    text += `Model type: ${determineModelType(layers)}\n`;
+    text += `Input shape: ${layers.length > 0 && layers[0].inputShape.length > 0 ? layers[0].inputShape.join('×') : 'Unknown'}\n`;
+    text += `Output shape: ${layers.length > 0 ? layers[layers.length-1].outputShape.join('×') : 'Unknown'}\n\n`;
+    
+    text += `Layer Architecture:\n`;
+    text += `${'='.repeat(20)}\n\n`;
+    
+    // Add each layer
+    for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        
+        text += `Layer ${i+1}: ${layer.type}\n`;
+        text += `${'-'.repeat(layer.type.length + 9)}\n`;
+        
+        // Add shape info
+        if (layer.inputShape.length > 0 && layer.outputShape.length > 0) {
+            text += `Shape: ${layer.inputShape.join('×')} → ${layer.outputShape.join('×')}\n`;
+        } else if (layer.units > 0) {
+            text += `Units: ${layer.units}\n`;
+        }
+        
+        // Add parameters
+        text += `Parameters:\n`;
+        for (const [key, value] of Object.entries(layer.params)) {
+            text += `  - ${key}: ${value}\n`;
+        }
+        
+        // Add estimated parameter count for this layer
+        const paramCount = estimateLayerParameters(layer);
+        text += `Trainable parameters: ${paramCount.toLocaleString()}\n\n`;
+        
+        // Add connector except for the last layer
+        if (i < layers.length - 1) {
+            text += `    |\n    v\n\n`;
+        }
+    }
+    
+    // Add model summary
+    text += `\nModel Summary:\n`;
+    text += `${'='.repeat(14)}\n\n`;
+    text += `Dense layers: ${countLayersByType(layers, 'Dense')}\n`;
+    text += `Convolutional layers: ${countLayersByType(layers, 'Conv')}\n`;
+    text += `Pooling layers: ${countLayersByType(layers, 'Pool')}\n`;
+    text += `Dropout layers: ${countLayersByType(layers, 'Dropout')}\n`;
+    text += `Total parameters: ${estimateTotalParameters(layers).toLocaleString()}\n`;
+    
+    return text;
+}
+
+/**
+ * Determine the type of model based on its layers
+ */
+function determineModelType(layers: ModelLayer[]): string {
+    if (layers.some(l => l.type.includes('Conv'))) {
+        return 'Convolutional Neural Network (CNN)';
+    } else if (layers.some(l => l.type === 'LSTM' || l.type === 'GRU' || l.type === 'RNN')) {
+        return 'Recurrent Neural Network (RNN)';
+    } else if (layers.every(l => l.type === 'Dense' || l.type === 'Dropout' || l.type === 'BatchNormalization')) {
+        return 'Multilayer Perceptron (MLP)';
+    } else {
+        return 'Hybrid Neural Network';
+    }
+}
+
+/**
+ * Count layers by type
+ */
+function countLayersByType(layers: ModelLayer[], typeSubstring: string): number {
+    return layers.filter(l => l.type.toLowerCase().includes(typeSubstring.toLowerCase())).length;
+}
+
+/**
+ * Estimate parameters for a single layer
+ */
+function estimateLayerParameters(layer: ModelLayer): number {
+    if (layer.type === 'Dense') {
+        // Dense layer: (input_units + 1) * output_units
+        const inputUnits = layer.inputShape.length > 0 ? layer.inputShape[0] : 0;
+        return (inputUnits + 1) * layer.units;
+    } else if (layer.type.includes('Conv2D')) {
+        // Conv2D layer: kernel_size^2 * input_channels * filters + filters
+        const kernelSize = layer.params.kernel_size ? parseInt(layer.params.kernel_size, 10) : 3;
+        const inputChannels = layer.inputShape.length > 2 ? layer.inputShape[2] : 1;
+        return (kernelSize * kernelSize * inputChannels * layer.units) + layer.units;
+    } else if (layer.type === 'BatchNormalization') {
+        // BatchNorm: 4 * channels (gamma, beta, moving_mean, moving_variance)
+        const channels = layer.inputShape.length > 2 ? layer.inputShape[2] : 
+                        layer.inputShape.length > 0 ? layer.inputShape[0] : 0;
+        return 4 * channels;
+    } else if (layer.type === 'Dropout' || layer.type.includes('Pool')) {
+        // No parameters
+        return 0;
+    } else {
+        // Default estimation
+        return 0;
+    }
+}
+
+/**
+ * Estimate total parameters for the model
+ */
+function estimateTotalParameters(layers: ModelLayer[]): number {
+    return layers.reduce((total, layer) => total + estimateLayerParameters(layer), 0);
+}
+
+// Type definitions
+interface ModelLayer {
+    id: number;
+    name: string;
+    type: string;
+    params: { [key: string]: string };
+    units: number;
+    inputShape: number[];
+    outputShape: number[];
 }
 
 /**
