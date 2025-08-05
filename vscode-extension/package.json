@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "ailang",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Programming Languages",
@@ -13,10 +13,8 @@
     "Formatters"
   ],
   "activationEvents": [
-    "onLanguage:ailang",
-    "onCommand:ailang.formatFile",
-    "onCommand:ailang.setLanguageId",
-    "workspaceContains:**/*.ail"
+    "workspaceContains:**/*.ail",
+    "onStartupFinished"
   ],
   "main": "./out/src/extension.js",
   "contributes": {
@@ -85,6 +83,10 @@
       {
         "command": "ailang.convertToSequentialModel",
         "title": "AILang: Convert to Sequential Model"
+      },
+      {
+        "command": "ailang.debugInfo",
+        "title": "AILang: Debug Info"
       }
     ],
     "formatters": [
@@ -93,6 +95,7 @@
         "extensions": [".ail"]
       }
     ],
+
     "configuration": {
       "type": "object",
       "title": "AILang Configuration",
@@ -299,6 +302,43 @@
           "when": "resourceLangId == ailang",
           "group": "ailang"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "ailang.formatFile",
+          "when": "editorLangId == ailang"
+        },
+        {
+          "command": "ailang.setLanguageId",
+          "when": "resourceExtname == .ail"
+        },
+        {
+          "command": "ailang.validateFile",
+          "when": "editorLangId == ailang"
+        },
+        {
+          "command": "ailang.debugInfo"
+        },
+        {
+          "command": "ailang.addModelTemplate",
+          "when": "editorLangId == ailang"
+        },
+        {
+          "command": "ailang.addLayer",
+          "when": "editorLangId == ailang"
+        },
+        {
+          "command": "ailang.addCompileStatement",
+          "when": "editorLangId == ailang"
+        },
+        {
+          "command": "ailang.convertToSequentialModel",
+          "when": "editorLangId == ailang"
+        },
+
+        {
+          "command": "ailang.showWelcome"
+        }
       ]
     }
   },
@@ -317,7 +357,7 @@
     "@types/glob": "^8.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^16.18.126",
-    "@types/vscode": "^1.74.0",
+    "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "@vscode/test-electron": "^2.1.5",

@@ -205,6 +205,23 @@ export function registerFormatter(context: vscode.ExtensionContext) {
                 const document = editor.document;
                 console.log(`Formatting document: ${document.fileName}, Language ID: ${document.languageId}`);
                 
+                // Check if this is an AILang file by extension or language ID
+                const isAILangFile = document.fileName.endsWith('.ail') || document.languageId === 'ailang';
+                if (!isAILangFile) {
+                    const setLanguage = await vscode.window.showWarningMessage(
+                        'This does not appear to be an AILang file. Would you like to set the language to AILang?',
+                        'Yes', 'No'
+                    );
+                    
+                    if (setLanguage === 'Yes') {
+                        await vscode.commands.executeCommand('setEditorLanguage', { languageId: 'ailang' });
+                        console.log('Language ID set to AILang');
+                    } else {
+                        console.log('User chose not to set language to AILang');
+                        return;
+                    }
+                }
+                
                 // Apply formatting directly using our formatter
                 const edits = formatter.provideDocumentFormattingEdits(document);
                 if (edits && edits.length > 0) {

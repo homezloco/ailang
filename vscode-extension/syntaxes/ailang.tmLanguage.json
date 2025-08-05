@@ -5,6 +5,7 @@
     "fileTypes": ["ail"],
     "patterns": [
         {"include": "#comments"},
+        {"include": "#model_definition"},
         {"include": "#functions"},
         {"include": "#parameters"},
         {"include": "#keywords"},
@@ -17,7 +18,10 @@
         {"include": "#layers"},
         {"include": "#activations"},
         {"include": "#optimizers"},
-        {"include": "#losses"}
+        {"include": "#losses"},
+        {"include": "#metrics"},
+        {"include": "#callbacks"},
+        {"include": "#section_headers"}
     ],
     "repository": {
         "comments": {
@@ -88,6 +92,25 @@
         "losses": {
             "name": "support.type.loss.ailang",
             "match": "\\b(MeanSquaredError|MeanAbsoluteError|MeanAbsolutePercentageError|MeanSquaredLogarithmicError|BinaryCrossentropy|CategoricalCrossentropy|SparseCategoricalCrossentropy|Hinge|SquaredHinge|CategoricalHinge|LogCosh|Huber|KLDivergence|Poisson|CosineSimilarity|BinaryFocalCrossentropy|Huber|LogCosh)\\b"
+        },
+        "metrics": {
+            "name": "support.type.metric.ailang",
+            "match": "\\b(Accuracy|BinaryAccuracy|CategoricalAccuracy|SparseCategoricalAccuracy|TopKCategoricalAccuracy|SparseTopKCategoricalAccuracy|Precision|Recall|AUC|F1Score|MeanIoU|MeanTensorMetric|RootMeanSquaredError|TruePositives|TrueNegatives|FalsePositives|FalseNegatives)\\b"
+        },
+        "callbacks": {
+            "name": "support.type.callback.ailang",
+            "match": "\\b(EarlyStopping|ModelCheckpoint|TensorBoard|ReduceLROnPlateau|CSVLogger|LearningRateScheduler|TerminateOnNaN|RemoteMonitor|LambdaCallback)\\b"
+        },
+        "section_headers": {
+            "name": "entity.name.section.ailang",
+            "match": "\\b(layers:|train:|data_augmentation:|callbacks:|preprocessing:|evaluation:|inference:)\\b"
+        },
+        "model_definition": {
+            "match": "(model)\\s+(\\w+)\\s*\\{",
+            "captures": {
+                "1": { "name": "keyword.control.ailang" },
+                "2": { "name": "entity.name.class.ailang" }
+            }
         }
     }
 }

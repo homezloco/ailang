@@ -26,7 +26,9 @@ export function logDebugInfo() {
     
     // Log extension context
     console.log('Extension activation events:');
-    const extension = vscode.extensions.getExtension('ailang');
+    // Try both possible extension IDs
+    const extension = vscode.extensions.getExtension('ailang.ailang') || vscode.extensions.getExtension('ailang');
+    console.log('All extensions:', vscode.extensions.all.map(ext => ext.id));
     if (extension) {
         console.log('  Extension found:', extension.id);
         console.log('  Is active:', extension.isActive);

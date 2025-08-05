@@ -1,0 +1,64 @@
+# AILang Syntax Test File
+# This file tests the syntax highlighting for AILang
+
+model TestModel {
+  layers:
+    - Input(shape=(28, 28, 1))
+    - Conv2D(filters=32, kernel_size=(3, 3), activation='relu')
+    - MaxPooling2D(pool_size=(2, 2))
+    - Conv2D(filters=64, kernel_size=(3, 3), activation='relu')
+    - MaxPooling2D(pool_size=(2, 2))
+    - Flatten()
+    - Dense(units=128, activation='relu')
+    - Dropout(rate=0.5)
+    - Dense(units=10, activation='softmax')
+  
+  train:
+    optimizer: Adam(learning_rate=0.001)
+    loss: CategoricalCrossentropy()
+    metrics: [Accuracy, Precision, Recall]
+    epochs: 10
+    batch_size: 32
+    validation_split: 0.2
+  
+  callbacks:
+    - EarlyStopping(monitor='val_loss', patience=3)
+    - ModelCheckpoint(filepath='best_model.h5', save_best_only=true)
+    - ReduceLROnPlateau(factor=0.2, patience=2)
+  
+  data_augmentation:
+    - RandomRotation(0.1)
+    - RandomZoom(0.1)
+    - RandomFlip('horizontal')
+  
+  preprocessing:
+    - Rescaling(1./255)
+    - Normalization()
+  
+  evaluation:
+    metrics: [Accuracy, F1Score, AUC]
+    
+  inference:
+    batch_size: 32
+}
+
+# Testing constants
+true
+false
+null
+none
+True
+False
+None
+
+# Testing numbers
+123
+123.456
+1.23e-4
+
+# Testing strings
+"This is a string"
+'This is also a string'
+
+# Testing operators
+= > < ! ~ ? : & | + - * / % ^

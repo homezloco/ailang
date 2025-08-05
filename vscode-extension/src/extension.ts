@@ -7,14 +7,31 @@ import { registerCompletionProvider } from './completionProvider';
 import { registerHoverProvider } from './hoverProvider';
 import { registerDiagnosticProvider } from './diagnosticProvider';
 import { registerCodeActionProvider } from './codeActionProvider';
+import { registerFoldingRangeProvider } from './foldingRangeProvider';
 import { logDebugInfo } from './debug';
 
 let client: LanguageClient;
 
 export async function activate(context: ExtensionContext) {
-    console.log('AILang extension is activating...');
+    console.log('AILang extension is now activating!');
+    window.showInformationMessage('AILang extension is now activating!');
     
-    // Show welcome message
+    console.log('Extension path:', context.extensionPath);
+    console.log('Extension URI:', context.extensionUri.toString());
+    console.log('Extension mode:', context.extensionMode);
+    
+    const welcomeCommand = commands.registerCommand('ailang.showWelcome', () => {
+        window.showInformationMessage('Welcome to AILang extension!');
+    });
+    
+    commands.executeCommand('ailang.showWelcome').then(() => {
+        console.log('Welcome command executed successfully');
+    }, (error) => {
+        console.error('Failed to execute welcome command:', error);
+    });
+    
+    console.log('All registered commands:', commands.getCommands(true).then(cmds => console.log(cmds)));
+    
     const showWelcome = async () => {
         try {
             const selection = await window.showInformationMessage(
@@ -39,9 +56,20 @@ export async function activate(context: ExtensionContext) {
         const config = workspace.getConfiguration('ailang');
         
         // Register commands and providers
+        console.log('Registering commands...');
+        
+        // Register all commands explicitly
         const validateCommand = commands.registerCommand('ailang.validateFile', validateCurrentFile);
+        context.subscriptions.push(validateCommand);
+        console.log('Registered ailang.validateFile command');
+        
         const formatCommand = commands.registerCommand('ailang.formatFile', formatCurrentFile);
+        context.subscriptions.push(formatCommand);
+        console.log('Registered ailang.formatFile command');
+        
         const debugCommand = commands.registerCommand('ailang.debugInfo', logDebugInfo);
+        context.subscriptions.push(debugCommand);
+        console.log('Registered ailang.debugInfo command');
         
         // Register a command to set the language ID for the current file
         const setLanguageCommand = commands.registerCommand('ailang.setLanguageId', async () => {
@@ -71,18 +99,47 @@ export async function activate(context: ExtensionContext) {
             console.log('Registering hover provider...');
             registerHoverProvider(context);
             console.log('Hover provider registered successfully');
+            
+            console.log('Registering formatter...');
+            registerFormatter(context);
+            console.log('Formatter registered successfully');
+            
+            console.log('Registering completion provider...');
+            registerCompletionProvider(context);
+            console.log('Completion provider registered successfully');
+            
+            console.log('Registering diagnostic provider...');
+            registerDiagnosticProvider(context);
+            console.log('Diagnostic provider registered successfully');
+            
+            console.log('Registering code action provider...');
+            registerCodeActionProvider(context);
+            console.log('Code action provider registered successfully');
         } catch (error) {
-            console.error('Failed to register hover provider:', error);
-            window.showErrorMessage(`Failed to register hover provider: ${error}`);
+            console.error('Failed to register providers:', error);
+            window.showErrorMessage(`Failed to register providers: ${error}`);
         }
         
-        // Add commands to subscriptions
+        // Register commands and providers
+        // We've already added some commands to subscriptions individually
+        // Add the remaining commands
         context.subscriptions.push(
             welcomeCommand,
-            validateCommand, 
-            formatCommand,
             setLanguageCommand
         );
+        
+        // Force VS Code to recognize our commands
+        commands.executeCommand('setContext', 'ailang.commandsRegistered', true);
+        
+        // Ensure all core commands are properly registered
+        console.log('All core AILang commands registered successfully');
+        
+        // Log all registered commands
+        commands.getCommands(true).then(allCommands => {
+            console.log('All registered commands:', allCommands);
+            const ailangCommands = allCommands.filter(cmd => cmd.startsWith('ailang.'));
+            console.log('AILang commands:', ailangCommands);
+        });
         
         // Start the language server
         console.log('Starting language server...');
