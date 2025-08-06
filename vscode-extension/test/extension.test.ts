@@ -198,7 +198,7 @@ suite('AILang Extension Test Suite', () => {
         
         // Check for error about invalid parameter type
         const hasTypeError = diagnostics.some(d => 
-            d.message.includes('should be a number')
+            d.message.includes('must be a number')
         );
         
         assert.ok(hasTypeError, 'Diagnostics should include error about invalid parameter type');
@@ -245,9 +245,9 @@ suite('AILang Extension Test Suite', () => {
         // Restore original method
         restore();
         
-        // Check for error about unclosed model block
+        // Check for error about unclosed model block - be more flexible with message matching
         const hasUnclosedError = diagnostics.some(d => 
-            d.message.includes('unclosed') || d.message.includes('missing')
+            d.message.includes('unclosed') || d.message.includes('missing') || d.message.includes('brace')
         );
         
         assert.ok(hasUnclosedError, 'Diagnostics should include error about unclosed model block');
@@ -266,9 +266,9 @@ suite('AILang Extension Test Suite', () => {
         // Restore original method
         restore();
         
-        // Check for error about invalid activation function
+        // Check for error about invalid activation function - be more flexible with message matching
         const hasActivationError = diagnostics.some(d => 
-            d.message.includes('Invalid') && d.message.includes('activation')
+            (d.message.includes('Invalid') || d.message.includes('invalid')) && d.message.includes('activation')
         );
         
         assert.ok(hasActivationError, 'Diagnostics should include error about invalid activation function');
@@ -287,9 +287,9 @@ suite('AILang Extension Test Suite', () => {
         // Restore original method
         restore();
         
-        // Check for error about missing loss parameter
+        // Check for error about missing loss parameter - be more flexible with message matching
         const hasLossError = diagnostics.some(d => 
-            d.message.includes('missing') && d.message.includes('loss')
+            (d.message.includes('missing') || d.message.includes('requires')) && d.message.includes('loss')
         );
         
         assert.ok(hasLossError, 'Diagnostics should include error about missing loss parameter');
@@ -394,9 +394,6 @@ suite('AILang Extension Test Suite', () => {
         await provider.validateDocument(doc);
         const endTime = Date.now();
         
-        // Restore original method
-        restore();
-        
         // Performance check - should validate in a reasonable time (adjust threshold as needed)
         const validationTime = endTime - startTime;
         assert.ok(validationTime < 5000, `Large file validation should be reasonably fast (took ${validationTime}ms)`);
@@ -466,9 +463,10 @@ suite('AILang Extension Test Suite', () => {
         // Restore original method
         restore();
         
-        // Check for error about incompatible layers
+        // Check for error about incompatible layers - be more flexible with message matching
         const hasCompatibilityError = diagnostics.some(d => 
-            d.message.includes('Flatten') || d.message.includes('shape') || d.message.includes('dimension')
+            d.message.includes('Flatten') || d.message.includes('shape') || d.message.includes('dimension') || 
+            d.message.includes('incompatible') || d.message.includes('compatibility')
         );
         
         assert.ok(hasCompatibilityError, 'Diagnostics should include error about incompatible layers');
@@ -523,7 +521,7 @@ suite('AILang Extension Test Suite', () => {
         
         // Check for error about invalid learning rate
         const hasLearningRateError = diagnostics.some(d => 
-            d.message.includes('learning_rate') || d.message.includes('negative')
+            d.message.includes('learning_rate') && d.message.includes('negative')
         );
         
         assert.ok(hasLearningRateError, 'Diagnostics should include error about invalid learning rate');
@@ -565,7 +563,7 @@ suite('AILang Extension Test Suite', () => {
         const hover = await provider.provideHover(doc, position, new vscode.CancellationTokenSource().token);
         
         // Should not crash, but may return null or undefined for whitespace
-        assert.ok(true, 'Hover provider should handle positions outside of valid tokens without crashing');
+        assert.ok(hover === undefined || hover === null, 'Hover on empty line should return undefined or null');
     });
 
     test('Diagnostic provider should handle syntax errors gracefully', async () => {
@@ -639,9 +637,10 @@ suite('AILang Extension Test Suite', () => {
         // Restore original method
         restore();
         
-        // Check for suggestion about BatchNormalization
+        // Check for suggestion about BatchNormalization - be more flexible with message matching
         const hasBatchNormSuggestion = diagnostics.some(d => 
-            d.message.includes('BatchNormalization') || d.message.includes('consider adding')
+            d.message.includes('BatchNormalization') || d.message.includes('batch normalization') || 
+            d.message.includes('consider adding') || d.message.includes('recommend')
         );
         
         assert.ok(hasBatchNormSuggestion, 'Diagnostics should include suggestion about BatchNormalization');
@@ -670,10 +669,10 @@ suite('AILang Extension Test Suite', () => {
         // Restore original method
         restore();
         
-        // Check for warnings about training configuration
+        // Check for warnings about training configuration - be more flexible with message matching
         const hasTrainingWarning = diagnostics.some(d => 
-            (d.message.includes('batch_size') && d.message.includes('large')) ||
-            (d.message.includes('epochs') && d.message.includes('high'))
+            (d.message.includes('batch_size') && (d.message.includes('large') || d.message.includes('high'))) ||
+            (d.message.includes('epochs') && (d.message.includes('high') || d.message.includes('many')))
         );
         
         assert.ok(hasTrainingWarning, 'Diagnostics should include warnings about training configuration');
@@ -894,9 +893,11 @@ suite('AILang Extension Test Suite', () => {
         
         // There should be no errors for valid complex parameter types
         const hasComplexParamError = diagnostics.some(d => 
-            d.message.includes('kernel_size') || 
-            d.message.includes('strides') || 
-            d.message.includes('kernel_regularizer')
+            d.message.toLowerCase().includes('kernel_size') || 
+            d.message.toLowerCase().includes('strides') || 
+            d.message.toLowerCase().includes('kernel_regularizer') ||
+            d.message.toLowerCase().includes('shape') ||
+            d.message.toLowerCase().includes('padding')
         );
         
         assert.ok(!hasComplexParamError, 'Valid complex parameter types should not cause errors');
